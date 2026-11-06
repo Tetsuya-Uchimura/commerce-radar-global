@@ -1,0 +1,11 @@
+python-dotenv>=1.0,<2.0
+fastapi>=0.115,<1.0
+uvicorn>=0.34,<1.0
+sqlalchemy>=2.0,<3.0
+pydantic>=2.10,<3.0
+# Shared HTTP transport for PayPal, Frankfurter, Apple and optional Channel3 REST.
+httpx>=0.28,<1.0
+# Public-IP-pinned, bounded product-link checks; pinned in requirements-lock.txt.
+httpcore>=1.0,<2.0
+openai>=2.0,<3.0
+pytest>=8.0,<10.0
