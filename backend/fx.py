@@ -11,6 +11,7 @@ D=Decimal
 CURRENCIES=['EUR','GBP','JPY','CAD','AUD','CHF','SEK','SGD']
 fx_lock=threading.Lock()
 _range_requests={}
+_failed_requests={}
 
 
 def safe_decimal(value):
@@ -73,12 +74,17 @@ provider=FrankfurterProvider()
 def refresh_live(db,currencies,force=False,start=None):
     with fx_lock:
         request_key=(tuple(sorted(currencies)),str(start))
+        failure_key=(id(db.get_bind()),request_key)
+        if not force and time.monotonic()-_failed_requests.get(failure_key,-1000)<60:return False
         if start is not None and not force and time.monotonic()-_range_requests.get(request_key,0)<21600:return False
         cached=list(db.scalars(select(ExchangeRate).where(ExchangeRate.source=='frankfurter',ExchangeRate.quote=='USD',ExchangeRate.base.in_(currencies))))
         now=datetime.now(timezone.utc)
         complete=all(any(r.base==c for r in cached) for c in currencies)
         covered=start is None or all(min((r.rate_date for r in cached if r.base==c),default=date.today())<=start+timedelta(days=7) for c in currencies)
-        if not force and complete and covered and min(r.fetched_at.replace(tzinfo=timezone.utc) for r in cached)>now-timedelta(hours=6):return False
+        # Old long-range chart rows must not invalidate a freshly retrieved daily
+        # window and force eight network requests on every profile read.
+        latest_fetches=[max((r.fetched_at.replace(tzinfo=timezone.utc) for r in cached if r.base==code),default=datetime.min.replace(tzinfo=timezone.utc)) for code in currencies]
+        if not force and complete and covered and min(latest_fetches)>now-timedelta(hours=6):return False
         rows=provider.fetch(currencies,start) if start else provider.fetch(currencies)
         for currency,day,rate in rows:
             item=db.scalar(select(ExchangeRate).where(ExchangeRate.base==currency,ExchangeRate.quote=='USD',ExchangeRate.rate_date==day,ExchangeRate.source=='frankfurter'))
@@ -86,6 +92,7 @@ def refresh_live(db,currencies,force=False,start=None):
             item.rate=str(rate);item.fetched_at=now
         db.commit()
         if rows:_range_requests[request_key]=time.monotonic()
+        else:_failed_requests[failure_key]=time.monotonic()
         return bool(rows)
 
 

@@ -32,6 +32,10 @@ run([npm,'--prefix','frontend','run','build'])
 smoke="""
 from fastapi.testclient import TestClient
 from backend.main import app
+from backend import fx
+# Dependency installs use the network; first-start verification is deterministic
+# and must also pass without Frankfurter or product-service connectivity.
+fx.provider.fetch=lambda *args: []
 with TestClient(app) as c:
  c.headers['X-Commerce-Radar']='1'
  assert c.get('/api/health').status_code==200
@@ -43,6 +47,8 @@ with TestClient(app) as c:
  assert c.get('/api/products/plan').status_code==200
  assert c.post('/api/products/automatic',json={}).json()['mode']=='Demo Products'
  assert c.get('/api/products/status').json()['status']=='unconfigured'
+ assert c.get('/api/fx/opportunities').json()['favorable_currencies']==[]
+ assert c.get('/api/fx/opportunities?mode=historical').json()['mode']=='historical'
 print('Clean first startup: health, session, seeded USD discovery, search plan and empty payment verification passed.')
 """
 run([python,'-c',smoke])

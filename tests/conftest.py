@@ -12,6 +12,8 @@ from backend.seed import seed
 
 @pytest.fixture
 def db(monkeypatch):
+    from backend import curated
+    monkeypatch.setattr(curated,'candidates',lambda *args:[])
     monkeypatch.setenv('ANALYSIS_AUTORUN','false')
     monkeypatch.delenv('OPENAI_API_KEY',raising=False)
     monkeypatch.delenv('CHANNEL3_API_KEY',raising=False)

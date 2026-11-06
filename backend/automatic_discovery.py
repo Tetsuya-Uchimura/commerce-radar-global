@@ -18,11 +18,12 @@ def country_groups(items):
         'unknown_origin':unknown}
 
 def run(db,uid,body):
-    plan=build(db,uid)
-    conditions={k:body.get(k) for k in ('query','country','category','budget_minor','kind','excluded_countries','provider','goal')}
+    period=body.get('fx_period') or '90D';mode=body.get('opportunity_mode') or 'live'
+    plan=build(db,uid,period,mode)
+    conditions={k:body.get(k) for k in ('query','country','category','budget_minor','kind','excluded_countries','provider','goal','fx_period','opportunity_mode','listing_currency')}
     signature=hashlib.sha256(json.dumps({'uid':uid,'plan':plan['signature'],'conditions':conditions},sort_keys=True).encode()).hexdigest()[:20]
     base={'user_id':uid,'version':plan['version'],'analysis_signature':plan['signature'],'signature':signature,
-        'search_plan':plan,'items':[],'countries':[],'unknown_origin':[],'provider_status':product_runtime.status(),
+        'search_plan':plan,'fx_intelligence':plan['fx_intelligence'],'items':[],'countries':[],'unknown_origin':[],'provider_status':product_runtime.status(),
         'error':None,'waiting_for_analysis':False,'discarded':False,'cached':False,'recommendation':products.recommendation([])}
     if body.get('expected_signature') and body['expected_signature']!=plan['signature']:
         return base|{'mode':'Discovering','discarded':True}
@@ -36,9 +37,9 @@ def run(db,uid,body):
     if plan['status'] in ('pending','analyzing') and os.getenv('OPENAI_API_KEY') and os.getenv('ANALYSIS_AUTORUN','true').lower()=='true' and product_runtime.status()['status']!='unavailable':
         return base|{'mode':'Discovering','waiting_for_analysis':True,'notice':'Discovering global shopping opportunities...'}
     query=body.get('query') or TERMS.get(body.get('category')) or None
-    result=products.explore(db,uid,query,body.get('country'),chosen,body.get('goal') or 'best',body.get('budget_minor'),body.get('excluded_countries'),body.get('kind') or 'any',bool(body.get('refresh')))
+    result=products.explore(db,uid,query,body.get('country'),chosen,body.get('goal') or 'best',body.get('budget_minor'),body.get('excluded_countries'),body.get('kind') or 'any',bool(body.get('refresh')),period,mode,body.get('listing_currency'))
     # DB state may have changed during a provider call; never label old work current.
-    db.expire_all();latest=build(db,uid)
+    db.expire_all();latest=build(db,uid,period,mode)
     if latest['signature']!=plan['signature']:
         return base|{'mode':'Discovering','discarded':True,'version':latest['version'],'analysis_signature':latest['signature']}
     error=result.get('error')
@@ -51,13 +52,13 @@ def run(db,uid,body):
     def observed(p,field):
         evidence=p.get(field+'_evidence') or {}
         return p.get(field) if isinstance(evidence,dict) and evidence.get('source') and evidence.get('observed_at') else None
-    items=[dict(p,data_source='Cached Product' if cached else 'Real Product',
+    items=[dict(p,data_source='Cached Product' if cached or p.get('curated_snapshot') else 'Real Product',
         seller_country=observed(p,'merchant_country'),ship_from_country=observed(p,'ship_from_country'),
         delivery_countries=observed(p,'delivery_countries')) for p in result['items']]
     grouped=country_groups(items)
     return base|{'mode':mode,'items':items,**grouped,'cached':cached,'error':error,
         'retry_after':result.get('retry_after') or (3 if any(p.get('link_access',{}).get('pending') for p in items) else None),'stale_cache':result.get('stale_cache',False),
         'query':result.get('query'),'source':result.get('source'),'provider_status':product_runtime.status(),
-        'recommendation':result['recommendation'],
+        'recommendation':products.recommendation(items,body.get('goal') or 'best',body.get('budget_minor')),
         'notice':('No products match these search conditions. You can switch to Demo Products.' if not items else
             'Seller location, shipping origin, currency and delivery countries are separate facts. Origin Unknown items do not contribute to map scores.')}

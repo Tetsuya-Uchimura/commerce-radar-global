@@ -66,5 +66,5 @@ def test_concierge_actions_not_payments(client):
     assert client.post('/api/concierge',json={'message':' '}).status_code==422
     assert client.post('/api/concierge',json={'message':'x'*801}).status_code==422
     answer=client.post('/api/concierge',json={'message':'Which countries offer better USD purchasing power?'}).json()
-    assert 'Synthetic Demo FX' in answer['explanation']
+    assert 'No favorable currency verified' in answer['explanation']  # Never promote synthetic fallback as live FX.
     assert any(a['type']=='set_filters' and a['filters'].get('sort')=='fx' for a in answer['actions'])

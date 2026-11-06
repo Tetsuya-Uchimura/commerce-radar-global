@@ -355,3 +355,7 @@ links. No backend, secret, provider/cache or payment behavior changed.
   provider caches are preserved; user-site review creates no origin/value evidence.
 
 Validation: 96 backend tests, 32 frontend tests and production build passed. Git-visible publication audit passed for 103 candidate files with zero forbidden artifacts or detected credential/private-key files. Backend restarted for policy activation.
+
+## FX-driven concept refinement — 2026-11-07
+
+Implemented the FX-first currency selection/search/evidence pipeline. See [fx-driven-discovery.md](fx-driven-discovery.md) for formulas, actual EUR/GBP/JPY checks, complete changed-file list, limitations and the three-minute judging sequence. Verification: 114 backend tests, 36 frontend tests, production build, clean install and publication audit passed. No push or visibility change; existing credentials and final video preserved.

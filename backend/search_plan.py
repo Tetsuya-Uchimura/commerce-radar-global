@@ -16,7 +16,7 @@ TERMS = {
     'Electronics': 'electronics creative tools',
 }
 
-def build(db, uid):
+def build(db, uid, fx_period='90D', fx_mode='live'):
     facts = analysis.features(db, uid)
     state = analysis.state(db, uid)
     current = state.status == 'completed' and state.applied_version == state.version
@@ -47,9 +47,14 @@ def build(db, uid):
     primary = emerging[0] if emerging else ranked[0] if ranked else 'Digital Experiences'
     for field in ('potential_purchase_intentions','novel_product_opportunities'):
         for hypothesis in result.get(field,[])[:3]: query(primary,primary+' '+hypothesis,field)
-    signature = hashlib.sha256(json.dumps({'version':state.version,'applied':state.applied_version,'queries':queries,'scores':scores},sort_keys=True).encode()).hexdigest()[:16]
+    from .fx_opportunities import intelligence
+    currency_context=intelligence(db,fx_period,fx_mode)
+    favorable=currency_context['favorable_currencies'][:3]
+    fx_queries=[dict(q,query=(q['query']+'; listings priced in '+currency+'; confirm original listing currency')[:200],
+        listing_currency_target=currency,origin=q['origin']+'+observed_fx_advantage') for q in queries[:3] for currency in favorable]
+    signature = hashlib.sha256(json.dumps({'version':state.version,'applied':state.applied_version,'queries':queries,'scores':scores,'fx':currency_context['signature']},sort_keys=True).encode()).hexdigest()[:16]
     return {'version':state.version,'applied_version':state.applied_version,'current_ai':bool(result),
-        'status':state.status,'signature':signature,'queries':queries,'category_scores':scores,
+        'status':state.status,'signature':signature,'queries':queries,'fx_queries':fx_queries,'fx_intelligence':currency_context,'category_scores':scores,
         'statistical_scores':facts['scores'],'category_counts':facts['counts'],'ai_category_scores':ai_scores,
         'budget_minor':setting.budget_usd if setting else None,
         'scoring_rule':'70% frequency/recency score + 30% AI category rubric (Strong 100, Moderate 65, Emerging 45; emerging list 70; preferred list 60). Stale AI excluded. Explicit categories restrict scope.',

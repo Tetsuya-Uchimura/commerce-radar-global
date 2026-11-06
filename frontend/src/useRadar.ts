@@ -8,10 +8,10 @@ export type RadarState=ReturnType<typeof useRadar>;
 
 export function useRadar(){
  const analysisVersion=useRef('');
- const [mapLayer,setMapLayer]=useState<MapLayer>('discovery');
+ const [mapLayer,setMapLayer]=useState<MapLayer>('fx');
  const [countryComparison,setCountryComparison]=useState<string[]>([]);
  const [fxSelection,setFXSelection]=useState({currency:'EUR',period:'1Y'});
- const [realRequest,setRealRequest]=useState({query:'',country:'',provider:'auto' as 'auto'|'web'|'app_store'|'channel3',request:0,goal:'best'});
+ const [realRequest,setRealRequest]=useState({query:'',country:'',provider:'auto' as 'auto'|'web'|'app_store'|'channel3'|'curated',request:0,goal:'best'});
  const [persona,setPersona]=useState<Persona>((localStorage.getItem('radar-persona') as Persona)||'coffee');
  const [view,setView]=useState<View>(location.pathname.startsWith('/payment/')?'payment':(location.hash.slice(1)||'map') as View);
  const [status,setStatus]=useState<DemoStatus|null>(null),[data,setData]=useState<Discovery|null>(null);
@@ -26,17 +26,18 @@ export function useRadar(){
  const [interestDraft,setInterestDraft]=useState<string[]>([]),[budgetDraft,setBudgetDraft]=useState(15000),[mobileFilters,setMobileFilters]=useState(false),[search,setSearch]=useState('');
  const effectiveFilters=useMemo(()=>({...filters,saved_only:view==='saved'}),[filters,view]);
  const qs=useMemo(()=>query(effectiveFilters),[effectiveFilters]);
- const automatic=useAutomaticDiscovery(ready&&!!data,persona,data?.profile.user_id,data?.profile.search_plan,{query:realRequest.query||null,provider:realRequest.provider,country:filters.country||null,category:filters.category||null,budget_minor:filters.max_budget,kind:filters.digital_only?'digital':filters.physical_only?'physical':'any',excluded_countries:(filters.excluded_countries||'').split(',').filter(Boolean),goal:realRequest.goal},reloadData);
+ const automatic=useAutomaticDiscovery(ready&&!!data,persona,data?.profile.user_id,data?.profile.search_plan,{query:realRequest.query||null,provider:realRequest.provider,country:filters.country||null,category:filters.category||null,budget_minor:filters.max_budget,kind:filters.digital_only?'digital':filters.physical_only?'physical':'any',excluded_countries:(filters.excluded_countries||'').split(',').filter(Boolean),goal:realRequest.goal,fx_period:filters.fx_period||'90D',opportunity_mode:filters.opportunity_mode||'live',listing_currency:filters.listing_currency},reloadData);
  const showingDemo=automatic.result?.mode==='Demo Products';
- const mapCountries=buildMapCountries(data?.countries||[],automatic.result,data?.discovery_markets,data?.profile.search_plan,mapLayer,showingDemo,filters.excluded_countries);
- const mapLayerTitle=showingDemo?'Demo Catalog':mapLayer==='discovery'?'Discovery Markets':'Verified Shopping Opportunities';
+ const fxIntelligence=data?.fx_intelligence||automatic.result?.fx_intelligence;
+ const mapCountries=buildMapCountries(data?.countries||[],automatic.result,data?.discovery_markets,data?.profile.search_plan,mapLayer,showingDemo,filters.excluded_countries,fxIntelligence);
+ const mapLayerTitle=mapLayer==='fx'?'FX Advantage Map':mapLayer==='personalized'?'Personalized Opportunities':mapLayer==='verified'?'Verified Product Origins':showingDemo?'Demo Catalog':'Discovery Markets';
  const selectedCountry=mapCountries.find(c=>c.code===filters.country);
  useEffect(()=>setCountryExplanation(null),[mapLayer]);
  const profile=data?.profile;
  const personaInfo=status?.personas.find(p=>p.id===persona);
  function navigate(next:View){setView(next);setError('');setMobileFilters(false);if(next!=='payment'){history.pushState({},'',`/#${next}`);setOrder(null);}}
  function updateFilters(changes:Partial<Filters>){if(changes.category!==undefined&&changes.category!==filters.category)setRealRequest(r=>({...r,query:''}));setFilters(f=>({...f,...changes}));setCountryExplanation(null);}
- function chooseCountry(code:string,name:string){setCountryName(name);updateFilters({country:code});}
+ function chooseCountry(code:string,name:string){setCountryName(name);const currency=data?.countries.find(c=>c.code===code)?.currency;updateFilters({country:code,listing_currency:currency});}
  useEffect(()=>{const fn=()=>setView(location.pathname.startsWith('/payment/')?'payment':(location.hash.slice(1)||'map') as View);window.addEventListener('popstate',fn);return()=>window.removeEventListener('popstate',fn);},[]);
  useEffect(()=>{let live=true;setReady(false);setLoading(true);setError('');setData(null);
   api<DemoStatus>('/demo/status').then(s=>{if(live)setStatus(s);return api('/demo/session',{persona});}).then(()=>{if(live){setReady(true);localStorage.setItem('radar-persona',persona);}}).catch(e=>{if(live){setError(e.message);setLoading(false);}});
@@ -75,7 +76,7 @@ if(action.type==='open_offer'){await openOffer(action.offer_id);setChatOpen(fals
  const currentSource=data?.fx.effective_mode==='live'?'DAILY FX · FRANKFURTER':data?.fx.effective_mode==='cached'?'CACHED FX · DAILY REFERENCE':data?.fx.effective_mode==='mixed'?'MIXED FX · CHECK EACH SOURCE':'DEMO FX · SYNTHETIC SCENARIO';
  function setProductQuery(query:string){setRealRequest(r=>({...r,query}));}
  function setProductProvider(provider:typeof realRequest.provider){setRealRequest(r=>({...r,provider}));}
- return {mapLayer,setMapLayer,mapLayerTitle,automatic,showingDemo,mapCountries,setProductQuery,setProductProvider,countryComparison,fxSelection,realRequest,reloadData,analysisApplied,clearChat,persona,view,status,data,ready,loading,error,busy,filters,countryName,detail,explanation,countryExplanation,savedCompare,comparisons,
+ return {fxIntelligence,setFXSelection,mapLayer,setMapLayer,mapLayerTitle,automatic,showingDemo,mapCountries,setProductQuery,setProductProvider,countryComparison,fxSelection,realRequest,reloadData,analysisApplied,clearChat,persona,view,status,data,ready,loading,error,busy,filters,countryName,detail,explanation,countryExplanation,savedCompare,comparisons,
   historyRows,historySource,chatOpen,chatInput,chatBusy,focusOffer,messages,checkoutOpen,checkoutMode,quantity,order,interestDraft,budgetDraft,mobileFilters,search,
   selectedCountry,profile,personaInfo,visibleOffers,firstName,cardProps,currentSource,qs,
   navigate,updateFilters,chooseCountry,changePersona,openOffer,toggleSave,compare,ask,explainOffer,explainCountry,saveProfile,resetDemo,createOrder,captureOrder,refreshOrder,

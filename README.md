@@ -1,12 +1,40 @@
-# Commerce Radar — Global Opportunity Discovery
+# Commerce Radar — FX-Driven Global Opportunity Discovery
 
-**Your AI Gateway to Global Shopping Opportunities.**
+**What you love. Where your dollar goes further.**
 
 A map-first shopping concierge for a **United States consumer**, using **USD budgets,
 USD estimated totals, and United States delivery**. It connects:
 
-**Editable history → statistical features → OpenAI interest analysis → global daily FX
-→ product/store discovery → conversation → explicitly approved Sandbox checkout.**
+**Editable history → OpenAI interests + daily currency opportunities → FX-aware search
+→ observed listing currency/price → explainable rankings + world map → concierge
+→ external store or explicitly approved Demo Merchant Sandbox checkout.**
+
+
+## FX-first recommendations (current implementation)
+
+The startup/persona/history pipeline first calculates currency opportunities, combines the current interest plan with favorable currencies, then searches for original listings in the target currency. The strongest available currency is the default query target; selecting a currency/country targets that listing currency. Search intent is never treated as evidence of returned currency or seller country. Channel3 can still return USD listings: those receive no foreign FX benefit. If no currency is favorable or history is missing, the UI reports that honestly and keeps personal discovery separate.
+
+**Calculation:** rates are Decimal USD per foreign unit. Frankfurter base-USD quotes are inverted exactly once. For current rate `C` and historical rate `H`:
+
+- USD purchasing-power advantage: `(H / C - 1) × 100`.
+- Constant-foreign-price USD cost change: `(C / H - 1) × 100`.
+- Current/historical hypothetical USD price: the *same observed foreign listing price* × C/H, rounded half-up to USD cents (JPY has no fractional minor unit).
+- 30D, 90D (default), 1Y use the observation on or at most seven days **before** the target date relative to each currency's latest observation. No interpolation. Missing comparisons are unscored. Rates over four calendar days old are excluded from FX ranking.
+- Positive purchasing power above 0.01% is favorable; within ±0.01% is neutral. FX score is `clamp(advantage × 10, 0, 100)`. Neutral/unfavorable FX never earns an FX-Backed Find badge. This score is not a discount.
+
+Verified, fresh price + original currency + price source/date + sufficient real FX history are required for FX-backed scoring. Listing prices older than seven days are excluded in Live mode. The positive-FX list additionally requires personal match ≥40/100, so unrelated goods cannot win on currency alone. Default weights are 45% personal interest, 35% positive USD power, 10% novelty, 10% evidence/freshness; override with `FX_RECOMMENDATION_WEIGHTS_JSON`. The older `SCORING_WEIGHTS_JSON` applies only to the fictional catalog and does not override the real-product engine.
+
+Three results have different meanings: **Best FX-Backed Finds**, **Best Personal Discovery**, **Best Verified Delivered Value**. Complete observed shipping, tax and payment-conversion costs are mandatory for the last. Pending merchant review keeps links disabled and prevents a confirmed destination winner, even when the product's price and FX math are evidenced. FX candidate lists can show those price-evidenced products with their access caveats. No US-price or cheapest-market claim is made without comparable evidence.
+
+The map starts with **FX Advantage Map** (supported currency regions). **Personalized Opportunities** aggregates actual relevant favorable-currency listings by listing currency; this is not seller origin. **Verified Product Origins** requires attributed seller-country evidence. The existing **Discovery Markets** layer remains an interest-led route. Portugal and Germany share EUR observations. Unsupported map countries remain unscored. Origin Unknown is never assigned from domain, currency or search target.
+
+`GET /api/fx/opportunities?period=90D&mode=live` returns all eight supported currencies with actual observation/reference dates and retrieval timestamps. `mode=historical` uses `backend/fixtures/fx_observed_snapshot.json`: immutable, saved genuine Frankfurter observations labelled **Historical Demonstration Scenario**, with an explicit as-of date. It is never represented as today's market. Historical price evidence is checked against the saved retrieval date; every price remains dated, and all comparisons assume unchanged local price. The separate old synthetic catalog cost scenario remains labelled Synthetic; it is never used for real-product FX ranking.
+
+`backend/fixtures/curated_products.json` is a tiny dated set of public official listing facts in GBP, JPY and EUR, not fictional products or a local cache/database export. These supplement successful nonempty Channel3 results when relevant; choose **Curated official listings · dated** to inspect them directly. No automatic website scraping occurs. Refresh deliberately with `.\.venv\Scripts\python.exe scripts/refresh_curated.py`; only allowlisted official product price metadata is read. Price source/variant, timestamp and unknown country/delivery are preserved. Destinations remain subject to the existing user-reviewed merchant allow/exclude policy. Frozen prices become stale after seven days; they are not guaranteed future availability.
+
+Product cache keys include actual query text (therefore requested currency) and provider/persona/country. Period changes rerank locally and reuse matching queries; if favorable target currency changes, a new bounded query may be necessary. Merely opening/changing an FX chart does not trigger paid OpenAI/product searches. Existing debounce, version guards, quota, single-flight locks, timeouts and error/cached/Demo fallbacks remain. With no Channel3 key, automatic startup still shows labelled Demo Products. Real and fictional rankings are never combined.
+
+Sources: [Frankfurter v2 documentation](https://frankfurter.dev/), [Channel3 developer API](https://www.trychannel3.com/developers). Daily references are not live ticks or PayPal conversion quotes. PayPal USD Demo Merchant checkout, fixed amount validation, idempotent capture and immutable history are unchanged. No new Live or foreign-currency payment was performed for this revision.
 
 ## Run locally on Windows
 

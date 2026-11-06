@@ -61,7 +61,7 @@ describe('global discovery journey',()=>{
   await waitFor(()=>expect(requests.some(p=>p.includes('country=PT'))).toBe(true));
   await waitFor(()=>expect(screen.queryByText('Canadian Trail Kit')).not.toBeInTheDocument());
   expect(await screen.findByText('Lisbon Coffee Workshop')).toBeInTheDocument();
-  expect(screen.getByText('Demo country opportunity score')).toBeInTheDocument();
+  expect(screen.getByText('Currency opportunity · not seller origin')).toBeInTheDocument();
  });
  it('switches only between defined consumer personas',async()=>{
   render(<App/>);await screen.findByText('Canadian Trail Kit');
@@ -167,11 +167,12 @@ describe('global discovery journey',()=>{
  it('separates interest-led exploration from verified country evidence without another product search',async()=>{
   productScenario='real';render(<App/>);
   await screen.findByRole('link',{name:'Visit Store ↗'});
-  expect(screen.getByRole('tab',{name:'Discovery Markets'})).toHaveAttribute('aria-selected','true');
+  expect(screen.getByRole('tab',{name:'FX Advantage Map'})).toHaveAttribute('aria-selected','true');
+  fireEvent.click(screen.getByRole('tab',{name:'Discovery Markets'}));
   expect(screen.getByText(/Highlighting does not verify seller location/)).toBeInTheDocument();
   const before=posts.filter(p=>p.path==='/api/products/automatic').length;
-  fireEvent.click(screen.getByRole('tab',{name:'Verified Shopping Opportunities'}));
-  expect(screen.getByRole('tab',{name:'Verified Shopping Opportunities'})).toHaveAttribute('aria-selected','true');
+  fireEvent.click(screen.getByRole('tab',{name:'Verified Product Origins'}));
+  expect(screen.getByRole('tab',{name:'Verified Product Origins'})).toHaveAttribute('aria-selected','true');
   expect(screen.getByText('No verified seller locations yet')).toBeInTheDocument();
   expect(screen.getByText('Origin Unknown')).toBeInTheDocument();
   expect(screen.queryByText(/85/)).not.toBeInTheDocument();
