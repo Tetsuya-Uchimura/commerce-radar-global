@@ -10,7 +10,7 @@ from .models import Purchase, InterestProfile, Offer, Product, Country, SavedOpp
 from .config import DEMO_DATE
 from .costs import landed_cost
 
-DEFAULT_WEIGHTS = {'interest': 30, 'cost': 25, 'fx': 15, 'novelty': 15, 'availability': 10, 'budget': 5}
+DEFAULT_WEIGHTS = {'interest': 45, 'cost': 0, 'fx': 35, 'novelty': 10, 'availability': 10, 'budget': 0}
 
 
 def weights():
@@ -20,9 +20,9 @@ def weights():
     return result
 
 
-def profile(db, user_id):
+def profile(db, user_id, fx_period='90D', opportunity_mode='live'):
     from .search_plan import build
-    plan = build(db, user_id)
+    plan = build(db, user_id,fx_period,opportunity_mode)
     rows = list(db.scalars(select(Purchase).where(Purchase.user_id == user_id, Purchase.deleted == False)))
     setting = db.get(InterestProfile, user_id)
     counts = Counter(p.category for p in rows if p.category != 'Unknown')

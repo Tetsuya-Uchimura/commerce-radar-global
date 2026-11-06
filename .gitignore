@@ -30,3 +30,6 @@ coverage/
 htmlcov/
 .coverage*
 *.sqlite3-*
+
+# Local demo video assets and recordings
+demo-video/

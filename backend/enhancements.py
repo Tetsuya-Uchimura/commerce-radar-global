@@ -12,11 +12,14 @@ from .seed import seed
 class Feedback(BaseModel):
     feedback:str=Field(max_length=500)
 class ProductSearch(BaseModel):
+    fx_period:Literal['30D','90D','1Y']='90D'
+    opportunity_mode:Literal['live','historical']='live'
+    listing_currency:Literal['EUR','GBP','JPY','AUD','CAD','CHF','SEK','SGD','USD']|None=None
     query:str|None=Field(default=None,min_length=2,max_length=200)
     country:str|None=Field(default=None,max_length=2)
     goal:Literal['best','cheapest','unique','quality']='best'
     budget_minor:int|None=Field(default=None,gt=0,le=10000000)
-    provider:Literal['auto','web','app_store','channel3']='auto'
+    provider:Literal['auto','web','app_store','channel3','curated']='auto'
     excluded_countries:list[str]=Field(default_factory=list,max_length=30)
     kind:Literal['digital','physical','any']='any'
 
@@ -37,9 +40,14 @@ def install(app,principal):
         from .automatic_discovery import run
         return run(db,user.id,body.model_dump())
     @app.get('/api/products/plan')
-    def plan(user=Depends(principal),db=Depends(get_db)):
+    def plan(fx_period:Literal['30D','90D','1Y']='90D',opportunity_mode:Literal['live','historical']='live',user=Depends(principal),db=Depends(get_db)):
         from .search_plan import build
-        return build(db,user.id)
+        return build(db,user.id,fx_period,opportunity_mode)
+
+    @app.get('/api/fx/opportunities')
+    def fx_opportunities(period:Literal['30D','90D','1Y']='90D',mode:Literal['live','historical']='live',user=Depends(principal),db=Depends(get_db)):
+        from .fx_opportunities import intelligence
+        return intelligence(db,period,mode)
     @app.get('/api/usage')
     def usage(user=Depends(principal),db=Depends(get_db)):
         from .usage import summary
@@ -96,7 +104,7 @@ def install(app,principal):
 
     @app.post('/api/products/search')
     def search(body:ProductSearch,user=Depends(principal),db=Depends(get_db)):
-        return products.explore(db,user.id,body.query,body.country,body.provider,body.goal,body.budget_minor,body.excluded_countries,body.kind)
+        return products.explore(db,user.id,body.query,body.country,body.provider,body.goal,body.budget_minor,body.excluded_countries,body.kind,False,body.fx_period,body.opportunity_mode,body.listing_currency)
 
     @app.post('/api/concierge/clear')
     def clear_chat(user=Depends(principal),db=Depends(get_db)):

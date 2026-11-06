@@ -7,10 +7,11 @@ import type {MapCountry} from './mapLayers';
 export function countryColor(country:MapCountry|undefined,selected=false){
  if(selected)return country?.exploration?'#ffe3a4':'#d2fff2';
  if(country?.exploration)return '#9c874f';
+ if(country?.currency_region){if(country.score===null)return '#293f51';return country.fxOpportunity?.status==='favorable'?'#8de1d6':country.fxOpportunity?.status==='unfavorable'?'#925b64':'#426b72';}
  if(!country||country.score===null)return '#293f51';
  return country.score>=80?'#8de1d6':country.score>=60?'#4f9a91':'#426b72';
 }
-type Props={layer?:'verified'|'discovery'|'demo';dataMode?:string;countries:MapCountry[];selected:string;onSelect:(code:string,name:string)=>void};
+type Props={layer?:'fx'|'personalized'|'verified'|'discovery'|'demo';dataMode?:string;countries:MapCountry[];selected:string;onSelect:(code:string,name:string)=>void};
 export default function WorldMap({countries,selected,onSelect,dataMode='Demo Catalog',layer='demo'}:Props){
  const [position,setPosition]=useState<{center:[number,number];zoom:number}>({center:[18,15],zoom:1});
  const [hover,setHover]=useState('');
@@ -26,7 +27,7 @@ export default function WorldMap({countries,selected,onSelect,dataMode='Demo Cat
     const name=country?.name||String(geo.properties?.name||'Uncovered country');
     return <Geography key={geo.rsmKey} geography={geo} fill={countryColor(country,country?.code===selected)} stroke="#172b3e" strokeWidth={0.65}
      tabIndex={0} role="button" aria-label={`Explore ${name}${country?`, ${country.band}`:', Insufficient Data'}`}
-     onMouseEnter={()=>setHover(name+(country?.exploration?' · Interest-led search target; seller location not verified':country?.score!=null?` · ${country.score} ${layer==='demo'?'demo opportunity match':'verified seller-location match'}`:' · No verified seller-location evidence'))} onMouseLeave={()=>setHover('')}
+     onMouseEnter={()=>setHover(name+(country?.currency_region?' · '+country.currency+' '+country.band+'; currency region, not seller origin':country?.exploration?' · Interest-led search target; seller location not verified':country?.score!=null?` · ${country.score} ${layer==='demo'?'demo opportunity match':'verified seller-location match'}`:' · No verified seller-location evidence'))} onMouseLeave={()=>setHover('')}
      onFocus={()=>setHover(name)} onBlur={()=>setHover('')}
      onClick={()=>onSelect(country?.code||'ZZ',name)} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();onSelect(country?.code||'ZZ',name);}}}
      style={{outline:'none',cursor:'pointer'}}/>;
@@ -43,6 +44,6 @@ export default function WorldMap({countries,selected,onSelect,dataMode='Demo Cat
  <div className="map-hover" aria-live="polite">{hover||'Select a country. Discover a different possibility.'}</div>
  <div className="map-controls"><button aria-label="Zoom in" onClick={()=>setPosition(p=>({...p,zoom:Math.min(6,p.zoom*1.35)}))}><Plus size={17}/></button><button aria-label="Zoom out" onClick={()=>setPosition(p=>({...p,zoom:Math.max(1,p.zoom/1.35)}))}><Minus size={17}/></button><button aria-label="Reset map view" onClick={()=>setPosition({center:[18,15],zoom:1})}><LocateFixed size={17}/></button></div>
  {geoError&&<p className="map-error">Map geometry unavailable. Use the country buttons below to continue.</p>}
- <div className="map-legend"><strong>{dataMode} · {layer==='discovery'?'exploration targets, not verified opportunities':layer==='demo'?'fictional opportunities':'source-confirmed seller locations'}</strong>{layer==='discovery'?<><span><i style={{background:'#9c874f'}}/>Interest-led target</span><span><i style={{background:'#ffe3a4'}}/>Selected search target</span><span><i style={{background:'#293f51'}}/>Outside current routes</span></>:<><span><i style={{background:'#8de1d6'}}/>Strong match</span><span><i style={{background:'#4f9a91'}}/>Good match</span><span><i style={{background:'#426b72'}}/>Explore match</span><span><i style={{background:'#293f51'}}/>{layer==='demo'?'Insufficient demo data':'No verified seller data'}</span></>}</div>
+ <div className="map-legend"><strong>{dataMode} · {layer==='fx'||layer==='personalized'?'currency regions, not seller origins':layer==='discovery'?'exploration targets, not verified opportunities':layer==='demo'?'fictional opportunities':'source-confirmed seller locations'}</strong>{layer==='fx'||layer==='personalized'?<><span><i style={{background:'#8de1d6'}}/>Favorable Currency</span><span><i style={{background:'#925b64'}}/>Unfavorable</span><span><i style={{background:'#293f51'}}/>Insufficient Data / no product evidence</span></>:layer==='discovery'?<><span><i style={{background:'#9c874f'}}/>Interest-led target</span><span><i style={{background:'#ffe3a4'}}/>Selected search target</span><span><i style={{background:'#293f51'}}/>Outside current routes</span></>:<><span><i style={{background:'#8de1d6'}}/>Strong match</span><span><i style={{background:'#4f9a91'}}/>Good match</span><span><i style={{background:'#426b72'}}/>Explore match</span><span><i style={{background:'#293f51'}}/>{layer==='demo'?'Insufficient demo data':'No verified seller data'}</span></>}</div>
  </div>;
 }

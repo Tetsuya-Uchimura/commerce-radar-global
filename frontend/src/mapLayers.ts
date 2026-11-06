@@ -1,12 +1,20 @@
 import type {Country,SearchPlan} from './api';
 import type {AutomaticResult} from './useAutomaticDiscovery';
-export type MapLayer='verified'|'discovery';
+import type {FXIntelligence,FXMarket} from './FXOpportunities';
+export type MapLayer='fx'|'personalized'|'verified'|'discovery';
 export type DiscoveryMarket={code:string;name:string;interests:string[];selected:boolean;query:string;basis:string;reason:string;seller_location_verified:false;opportunity_score:null;source:string};
-export type MapCountry=Country&{exploration?:DiscoveryMarket};
-export function mapCountries(countries:Country[],result:AutomaticResult|null,markets:DiscoveryMarket[]|undefined,plan:SearchPlan|undefined,layer:MapLayer,demo:boolean,excluded:string=''):MapCountry[]{
+export type MapCountry=Country&{exploration?:DiscoveryMarket;fxOpportunity?:FXMarket;currency_region?:boolean};
+export function mapCountries(countries:Country[],result:AutomaticResult|null,markets:DiscoveryMarket[]|undefined,plan:SearchPlan|undefined,layer:MapLayer,demo:boolean,excluded:string='',intel?:FXIntelligence):MapCountry[]{
  const omitted=new Set(excluded.split(','));
  return countries.filter(c=>!omitted.has(c.code)).map(c=>{
-  if(demo)return c;
+  if(layer==='fx'||layer==='personalized'){
+   const market=intel?.markets.find(m=>m.currency===c.currency);
+   const matches=(result?.recommendation?.fx_backed_finds||[]).filter(p=>p.currency===c.currency);
+   const score=layer==='fx'?(market?.eligible?market.selected?.fx_score??null:null):(matches.length?Math.max(...matches.map(p=>p.fx_opportunity?.score||0)):null);
+   return {...c,score,offer_count:matches.length,complete_count:0,fxOpportunity:market,currency_region:true,
+    band:market?.status||'Insufficient Data',explanation:layer==='fx'?'Currency region; USD purchasing power vs historical observation. Not seller location, product stock or a discount.':'Source-priced favorable-currency products; seller origin is separate. No confirmed product means no opportunity score.'};
+  }
+  if(demo&&layer==='discovery')return c;
   if(layer==='discovery'){
    const suggestion=markets?.find(m=>m.code===c.code);
    // The local fallback is also only an explicit route, never geographic evidence.

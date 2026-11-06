@@ -83,6 +83,9 @@ class Persona(StrictModel):
 
 
 class DiscoveryQuery(BaseModel):
+    fx_period:Literal['30D','90D','1Y']='90D'
+    opportunity_mode:Literal['live','historical']='live'
+    listing_currency:Literal['EUR','GBP','JPY','AUD','CAD','CHF','SEK','SGD','USD']|None=None
     fx_mode:Literal['demo','live']='live'
     scenario:Literal['balanced','strong-yen','weak-yen','strong-usd','weak-usd']='balanced'
     adjustment:float=Field(default=0,ge=-30,le=30,allow_inf_nan=False)
@@ -176,9 +179,9 @@ def demo_session(body:Persona,response:Response,db:DBSession=Depends(get_db)):
 @app.get('/api/discovery')
 def discover(q:DiscoveryQuery=Depends(),user=Depends(principal),db:DBSession=Depends(get_db)):
     rates,items,nations=data_context(db,user.id,q)
-    person=discovery.profile(db,user.id)
+    person=discovery.profile(db,user.id,q.fx_period,q.opportunity_mode)
     from .discovery_markets import markets
-    return {'profile':person,'countries':nations,
+    return {'profile':person,'countries':nations,'fx_intelligence':person['search_plan']['fx_intelligence'],
         'discovery_markets':markets(db,user.id,q.country,q.category,q.excluded_countries.split(',') if q.excluded_countries else [],person['search_plan']),
         'offers':[p for p in items if not q.country or p['country_code']==q.country],
         'fx':rates,'catalog_source':'Synthetic Demo Catalog','weights':discovery.weights(),
