@@ -163,7 +163,7 @@ def enrich(db,uid,items,query='',budget_minor=None,country=None,excluded_countri
             p['estimated_total_usd']=sum(costs[k] for k in names);p['total_unknown']=[]
             p['budget_status']='verified_within_budget' if budget_minor is not None and p['estimated_total_usd']<=budget_minor else 'over_budget' if budget_minor is not None else 'not_requested'
             if p['budget_status']=='over_budget':continue
-        from .fx_opportunities import product_evidence
+        from .fx_opportunities import product_evidence,display_label
         market=next((m for m in plan['fx_intelligence']['markets'] if m['currency']==currency),None)
         p['fx_opportunity']=product_evidence(p,market,interest,novelty,fx_mode)
         from .shopping_strategy import thresholds
@@ -171,6 +171,7 @@ def enrich(db,uid,items,query='',budget_minor=None,country=None,excluded_countri
         if op['verified']:
             power=Decimal(market['selected']['purchasing_power_advantage'])
             op['strategy_strength']=('meaningful' if power>limits['meaningful_percent'] and Decimal(op['difference_usd_minor'])>=limits['minimum_difference_usd']*100 and Decimal(str(interest))>=limits['minimum_interest'] else 'small' if power>limits['neutral_percent'] else 'unfavorable' if power < -limits['neutral_percent'] else 'marginal')
+        op['display_label']='USD Listing · No Foreign FX Benefit' if currency=='USD' else display_label(market,op['strategy_strength']=='meaningful')
         p['price_source']=p.get('source') if price is not None else None
         p['payment_method_availability']=p.get('payment_method_availability')
         p['evidence_confidence']='Observed provider listing' if p['fx_opportunity']['listing_fresh'] and price is not None else 'Incomplete or stale listing evidence'

@@ -12,7 +12,7 @@ export function mapCountries(countries:Country[],result:AutomaticResult|null,mar
    const matches=(result?.recommendation?.fx_backed_finds||[]).filter(p=>p.currency===c.currency);
    const score=layer==='fx'?(market?.eligible?market.selected?.fx_score??null:null):(matches.length?Math.max(...matches.map(p=>p.fx_opportunity?.score||0)):null);
    return {...c,score,offer_count:matches.length,complete_count:0,fxOpportunity:market,currency_region:true,
-    band:market?.status||'Insufficient Data',explanation:layer==='fx'?'Currency region; USD purchasing power vs historical observation. Not seller location, product stock or a discount.':'Source-priced favorable-currency products; seller origin is separate. No confirmed product means no opportunity score.'};
+    band:layer==='personalized'&&matches.length?'Meaningful Shopping Opportunity':market?.display_label||'Insufficient FX Data',explanation:layer==='fx'?'Currency region; USD purchasing power vs historical observation. Not seller location, product stock or a discount.':'Meaningful Shopping Opportunity: relevant, source-priced foreign-currency products; seller origin is separate. No confirmed product means no opportunity score.'};
   }
   if(demo&&layer==='discovery')return c;
   if(layer==='discovery'){

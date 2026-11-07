@@ -2,23 +2,50 @@ import {describe,it,expect,vi,afterEach} from 'vitest';
 import {render,screen,fireEvent,waitFor} from '@testing-library/react';
 import {ShoppingStrategyPanel,type ShoppingStrategy,type ShoppingSource} from '../ShoppingStrategy';
 import type {RadarState} from '../useRadar';
+import {FXOpportunityControls,ProductFXEvidence,type FXIntelligence,type ProductFX} from '../FXOpportunities';
+import {mapCountries} from '../mapLayers';
+import type {Country} from '../api';
+import type {RealProduct,AutomaticResult} from '../useAutomaticDiscovery';
 const base:ShoppingStrategy={strategy:'compare_both',calculated_strategy:'compare_both',display_name:'Compare Both',title:'Compare US and international coffee sources',summary:'Evidence does not support a stronger shopping priority yet.',primary_interest:'Coffee',recommended_currencies:['USD','EUR'],fx_period:'90D',fx_mode:'live',as_of:'2026-11-07',reason_codes:['missing_prices'],recommended_sources:[],evidence_status:'search_suggestion',limitations:[],shopping_priority:'auto',user_override:false,signature:'000000000000000000000001',user_id:1,analysis_version:1,analysis_signature:'profile-1',meaningful_product_ids:[],fx_evidence:[{currency:'EUR',rate_date:'2026-11-07',reference_date:'2026-08-09',purchasing_power_advantage:'2.85'}]};
 function radar(s=base,extra={}){return {strategy:s,automatic:{loading:false,result:null},chooseShoppingPriority:vi.fn(),exploreStrategy:vi.fn(),viewStrategyFX:vi.fn(),compareStrategyMarkets:vi.fn(),ask:vi.fn(),chatBusy:false,...extra} as unknown as RadarState;}
 const source:ShoppingSource={merchant:'Observed Store',product:'Observed coffee dripper',product_id:'actual',currency:'EUR',price_minor:5990,price_observed_at:'2026-11-07',url:'https://observed-store.com/products/dripper',source:'Observed publisher metadata',storefront_market:null,seller_country:null,basis:['personal_interest_match','observed_price_and_currency'],evidence_status:'observed_listing',link_access:{status:'user_pending',reason:'Manual review pending',checked_at:'2026-11-07',scope:'user',limitation:'Access unknown'}};
 afterEach(()=>vi.unstubAllGlobals());
 describe('shopping strategy panel',()=>{
+ it.each(['Slight FX Improvement','Neutral FX Trend','Unfavorable FX Trend','Meaningful Shopping Opportunity'])('keeps top, card and scoped map/currency labels consistent: %s',label=>{
+  const meaningful=label==='Meaningful Shopping Opportunity';
+  const currencyLabel=meaningful?'Favorable Currency Trend — Product Advantage Unverified':label;
+  const market={currency:'EUR',display_label:currencyLabel,status:'favorable',eligible:true,selected:{purchasing_power_advantage:'2.85',fx_score:28.5},comparisons:{}} as FXIntelligence['markets'][number];
+  const product={id:'observed',currency:'EUR',fx_opportunity:{display_label:label,verified:false,market,factors:{interest:90}} as ProductFX} as RealProduct;
+  const intel={markets:[market]} as FXIntelligence;
+  const s={...base,fx_evidence:[{...base.fx_evidence[0],display_label:label}]};
+  const r=radar(s,{filters:{},fxIntelligence:intel,updateFilters:vi.fn()});
+  const {container}=render(<><ShoppingStrategyPanel r={r}/><ProductFXEvidence p={product}/><FXOpportunityControls r={r}/></>);
+  expect(container.querySelector('.strategy-chips')?.textContent).toContain(label);
+  expect(container.querySelector('.product-fx-evidence .source-pill')?.textContent).toBe(label);
+  expect(container.querySelector('.fx-currency-strip small')?.textContent).toBe(currencyLabel);
+  if(label==='Slight FX Improvement')expect(container.querySelector('.fx-currency-strip .fx-favorable')).toBeNull();
+  const countries=[{code:'PT',currency:'EUR'} as Country];
+  expect(mapCountries(countries,null,undefined,undefined,'fx',false,'',intel)[0].band).toBe(currencyLabel);
+  if(meaningful){
+   const result={recommendation:{fx_backed_finds:[product]}} as AutomaticResult;
+   expect(mapCountries(countries,result,undefined,undefined,'personalized',false,'',intel)[0].band).toBe(label);
+  }
+ });
  it.each([['explore_overseas','Explore Overseas'],['us_stores_first','US Stores First'],['compare_both','Compare Both']] as const)('shows the computed %s strategy without needing OpenAI',(_id,label)=>{
   render(<ShoppingStrategyPanel r={radar({...base,strategy:_id,display_name:label})}/>);
   expect(screen.getByText(label,{selector:'.strategy-choice'})).toBeInTheDocument();
   expect(screen.getByText(base.summary)).toBeInTheDocument();
   expect(screen.getByText('Interest · Coffee')).toBeInTheDocument();
-  expect(screen.getByText('EUR · +2.9% USD power')).toBeInTheDocument();
+  expect(screen.getByText(/EUR · \+2.9% USD power · FX Trend · Product Advantage Unverified/)).toBeInTheDocument();
  });
  it('displays real source evidence and unknown origin without enabling pending destination',()=>{
   render(<ShoppingStrategyPanel r={radar({...base,recommended_sources:[source]})}/>);
   expect(screen.getByText('Observed coffee dripper · €59.90')).toBeInTheDocument();
   expect(screen.getByText(/Storefront market unverified · Seller origin: Origin Unknown/)).toBeInTheDocument();
   expect(screen.getByText(source.url)).toBeInTheDocument();expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  expect(screen.getByText('Awaiting user review')).toBeInTheDocument();
+  expect(screen.getByText(/not in your reviewed site list/)).toBeInTheDocument();
+  expect(screen.getByText('Price evidence: Observed publisher metadata')).toBeInTheDocument();
  });
  it('does not manufacture sites from a preferred currency',()=>{
   render(<ShoppingStrategyPanel r={radar()}/>);

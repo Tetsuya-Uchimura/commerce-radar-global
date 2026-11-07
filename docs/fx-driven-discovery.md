@@ -2,7 +2,15 @@
 
 The current product is the [AI Shopping Strategy Engine](shopping-strategy.md). The FX calculations below remain supporting evidence. Mathematically positive FX (the earlier 0.01% classification) is not automatically a strong shopping priority: the strategy engine also applies percentage, absolute-dollar, relevance and freshness gates, and can prefer US sources or comparison. The historical observations described below are preserved; current workflow and test results are in the linked guide.
 
-Verified 2026-11-07 (Asia/Tokyo). Work is on `feature/fx-driven-discovery`; no commit/push or repository visibility change was performed. Existing `.gitignore` changes excluding demo-video were retained. Existing .env, PayPal credentials and completed video were not edited. No new package dependency was needed.
+## Current repository status — 2026-11-08 (JST)
+
+The AI Shopping Strategy Engine is already merged into `main`: merge commit `a7fb8a0` (implementation `ebab01e`), following the FX merge `5af176e`. At the start of the final submission checks, local `main` and the recorded `origin/main` pointed to `a7fb8a0`. The final label/link/documentation polish builds on that baseline. Its original verification took place before commit and publication; the owner subsequently requested GitHub publication and integration into `main`. Consult the subsequent `main` history for the final integration commit. Repository visibility remains Private; this work makes no visibility change. MIT License is retained.
+
+Current final verification and merchant-review instructions: [final-submission-check.md](final-submission-check.md). The historical sections below describe evidence collected at their stated dates, rather than tests rerun during the final polish.
+
+## Historical FX implementation record — 2026-11-07
+
+At the time of this verification, work was on `feature/fx-driven-discovery` before commit/push. It was subsequently committed as `b0af9b9`, merged into `main` as `5af176e`, and pushed. No repository visibility change was performed. Existing `.gitignore` changes excluding demo-video were retained. Existing .env, PayPal credentials and completed video were not edited. No new package dependency was needed.
 
 ## Resulting pipeline
 
