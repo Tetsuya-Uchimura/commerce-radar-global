@@ -1,5 +1,7 @@
 # FX-driven discovery — implementation and verification
 
+The current product is the [AI Shopping Strategy Engine](shopping-strategy.md). The FX calculations below remain supporting evidence. Mathematically positive FX (the earlier 0.01% classification) is not automatically a strong shopping priority: the strategy engine also applies percentage, absolute-dollar, relevance and freshness gates, and can prefer US sources or comparison. The historical observations described below are preserved; current workflow and test results are in the linked guide.
+
 Verified 2026-11-07 (Asia/Tokyo). Work is on `feature/fx-driven-discovery`; no commit/push or repository visibility change was performed. Existing `.gitignore` changes excluding demo-video were retained. Existing .env, PayPal credentials and completed video were not edited. No new package dependency was needed.
 
 ## Resulting pipeline

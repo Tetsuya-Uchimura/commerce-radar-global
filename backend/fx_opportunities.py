@@ -41,12 +41,12 @@ def summarize(currency,series,period='90D',today=None,fetched_at=None,mode='live
     return result|{'current_rate':str(current),'rate_date':latest.isoformat(),'stale':stale,'selected':selected,
         'eligible':not stale and selected is not None,'status':'stale' if stale else selected['classification'] if selected else 'insufficient_data'}
 
-def intelligence(db,period='90D',mode='live'):
+def intelligence(db,period='90D',mode='live',refresh=True):
     if period not in PERIODS:raise ValueError('Unsupported FX opportunity period')
     if mode not in ('live','historical'):raise ValueError('Unsupported FX intelligence mode')
     snapshot=None
     if mode=='live':
-        fx.refresh_live(db,fx.CURRENCIES)
+        if refresh:fx.refresh_live(db,fx.CURRENCIES)
         rows=list(db.scalars(select(ExchangeRate).where(ExchangeRate.source=='frankfurter',ExchangeRate.quote=='USD',ExchangeRate.base.in_(fx.CURRENCIES))))
     else:
         snapshot=json.loads(SNAPSHOT.read_text(encoding='utf-8')) if SNAPSHOT.exists() else None

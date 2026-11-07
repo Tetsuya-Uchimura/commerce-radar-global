@@ -359,3 +359,13 @@ Validation: 96 backend tests, 32 frontend tests and production build passed. Git
 ## FX-driven concept refinement — 2026-11-07
 
 Implemented the FX-first currency selection/search/evidence pipeline. See [fx-driven-discovery.md](fx-driven-discovery.md) for formulas, actual EUR/GBP/JPY checks, complete changed-file list, limitations and the three-minute judging sequence. Verification: 114 backend tests, 36 frontend tests, production build, clean install and publication audit passed. No push or visibility change; existing credentials and final video preserved.
+
+## AI Shopping Strategy Engine — 2026-11-07
+
+Implemented deterministic Explore Overseas / US Stores First / Compare Both decisions, a cache-only immediate strategy endpoint, the responsive home strategy panel, evidenced shopping-site recommendations, contextual actions and map focus, per-persona overrides, explicit Ask AI Why without intent/product-search calls, and conservative comparison sections. Tiny FX differences no longer receive strong FX-find messaging. Existing FX, search, caches, history, model settings and Demo Merchant Sandbox boundaries remain.
+
+Final verification: **139 backend tests and 46 frontend tests passed**; production build, clean environment install/startup and publication audit passed. Desktop/390px Chromium checks passed. A live explanation-cache concurrency bug was fixed and regression-tested; simultaneous same-evidence requests use one model call. Real natural-language domestic-priority intent and source selection were also confirmed, then restored to Automatic.
+
+Real source metadata supports HARIO Europe EUR 59.90 and KINTO US-storefront USD 24.80, with the latter's official FAQ as market evidence. Archived genuine FX/price observations reproduce all three strategies without inventing live outcomes. The initial cache-only strategy responded in approximately 0.08 seconds locally; this is not a performance guarantee.
+
+See [shopping-strategy.md](shopping-strategy.md) for architecture, thresholds, real versus mocked/historical evidence, complete changed-file inventory, limitations and the sub-three-minute recording sequence. Branch feature/shopping-strategy; no commit/merge/push, visibility change, new payment or video overwrite. Existing credentials and completed payment records were preserved.

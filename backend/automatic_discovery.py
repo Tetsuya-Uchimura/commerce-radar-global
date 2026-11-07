@@ -20,11 +20,14 @@ def country_groups(items):
 def run(db,uid,body):
     period=body.get('fx_period') or '90D';mode=body.get('opportunity_mode') or 'live'
     plan=build(db,uid,period,mode)
-    conditions={k:body.get(k) for k in ('query','country','category','budget_minor','kind','excluded_countries','provider','goal','fx_period','opportunity_mode','listing_currency')}
+    from .shopping_strategy import current,preferences,market_sections
+    body=dict(body,shopping_priority=preferences(db,uid,body))
+    conditions={k:body.get(k) for k in ('query','country','category','budget_minor','kind','excluded_countries','provider','goal','fx_period','opportunity_mode','listing_currency','shopping_priority')}
     signature=hashlib.sha256(json.dumps({'uid':uid,'plan':plan['signature'],'conditions':conditions},sort_keys=True).encode()).hexdigest()[:20]
     base={'user_id':uid,'version':plan['version'],'analysis_signature':plan['signature'],'signature':signature,
         'search_plan':plan,'fx_intelligence':plan['fx_intelligence'],'items':[],'countries':[],'unknown_origin':[],'provider_status':product_runtime.status(),
-        'error':None,'waiting_for_analysis':False,'discarded':False,'cached':False,'recommendation':products.recommendation([])}
+        'error':None,'waiting_for_analysis':False,'discarded':False,'cached':False,'recommendation':products.recommendation([]),
+        'strategy':current(db,uid,plan,[],conditions),'market_sections':market_sections([])}
     if body.get('expected_signature') and body['expected_signature']!=plan['signature']:
         return base|{'mode':'Discovering','discarded':True}
     if body.get('demo_only'):
@@ -37,7 +40,7 @@ def run(db,uid,body):
     if plan['status'] in ('pending','analyzing') and os.getenv('OPENAI_API_KEY') and os.getenv('ANALYSIS_AUTORUN','true').lower()=='true' and product_runtime.status()['status']!='unavailable':
         return base|{'mode':'Discovering','waiting_for_analysis':True,'notice':'Discovering global shopping opportunities...'}
     query=body.get('query') or TERMS.get(body.get('category')) or None
-    result=products.explore(db,uid,query,body.get('country'),chosen,body.get('goal') or 'best',body.get('budget_minor'),body.get('excluded_countries'),body.get('kind') or 'any',bool(body.get('refresh')),period,mode,body.get('listing_currency'))
+    result=products.explore(db,uid,query,body.get('country'),chosen,body.get('goal') or 'best',body.get('budget_minor'),body.get('excluded_countries'),body.get('kind') or 'any',bool(body.get('refresh')),period,mode,body.get('listing_currency'),body.get('shopping_priority'),body.get('category'))
     # DB state may have changed during a provider call; never label old work current.
     db.expire_all();latest=build(db,uid,period,mode)
     if latest['signature']!=plan['signature']:
@@ -57,6 +60,7 @@ def run(db,uid,body):
         delivery_countries=observed(p,'delivery_countries')) for p in result['items']]
     grouped=country_groups(items)
     return base|{'mode':mode,'items':items,**grouped,'cached':cached,'error':error,
+        'strategy':current(db,uid,plan,items,conditions),'market_sections':market_sections(items,plan['fx_intelligence']['as_of'] if plan['fx_intelligence']['mode']=='historical' else None),
         'retry_after':result.get('retry_after') or (3 if any(p.get('link_access',{}).get('pending') for p in items) else None),'stale_cache':result.get('stale_cache',False),
         'query':result.get('query'),'source':result.get('source'),'provider_status':product_runtime.status(),
         'recommendation':products.recommendation(items,body.get('goal') or 'best',body.get('budget_minor')),

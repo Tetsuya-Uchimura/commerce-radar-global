@@ -42,3 +42,41 @@ def test_offer_explanation_is_scoped(client):
     assert answer.status_code==200
     assert answer.json()['source']=='Statistical template · no LLM'
     assert client.post('/api/countries/PT/explanation',json={}).status_code==200
+
+def test_concurrent_same_explanation_uses_one_model_call(db,tmp_path,monkeypatch):
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+    from sqlalchemy import create_engine,select,func
+    from sqlalchemy.orm import Session
+    from backend.models import Base,AICache
+    import backend.ai as ai
+    from backend.seed import seed
+    engine=create_engine('sqlite:///'+str(tmp_path/'explanations.db'),connect_args={'check_same_thread':False})
+    Base.metadata.create_all(engine)
+    with Session(engine) as session:seed(session)
+    monkeypatch.setenv('OPENAI_API_KEY','unit-test-key')
+    monkeypatch.setattr(ai,'_last_call',0)
+    entered=threading.Event();second_miss=threading.Event();release=threading.Event()
+    fake=MagicMock()
+    def parse(**kwargs):
+        entered.set();assert release.wait(5)
+        return SimpleNamespace(output_parsed=Explanation(explanation='A grounded strategy explanation.',limitation='Unknown costs.'))
+    fake.responses.parse.side_effect=parse
+    monkeypatch.setattr(ai,'OpenAI',lambda **kwargs:fake)
+    def call(second=False):
+        with Session(engine) as session:
+            get=session.get
+            def observed_get(entity,*args,**kwargs):
+                value=get(entity,*args,**kwargs)
+                if second and entity is AICache and value is None:second_miss.set()
+                return value
+            session.get=observed_get
+            return ai.explain(session,'user:1','strategy',{'same_evidence':True},'Fallback')
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        a=pool.submit(call);assert entered.wait(5)
+        b=pool.submit(call,True);assert second_miss.wait(5);release.set()
+        first=a.result();second=b.result()
+    assert first['source']=='OpenAI-generated explanation' and second['cached']
+    assert fake.responses.parse.call_count==1
+    with Session(engine) as session:assert session.scalar(select(func.count()).select_from(AICache))==1
+    engine.dispose()

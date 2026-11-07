@@ -6,6 +6,7 @@ import threading
 import time
 from openai import OpenAI, OpenAIError
 from pydantic import BaseModel, Field, ConfigDict, ValidationError
+from sqlalchemy import select
 from .models import AICache
 
 
@@ -34,6 +35,10 @@ def explain(db, scope, task, facts, fallback):
     if cached:
         return json.loads(cached.content) | {'cached': True}
     with _lock:
+        # Another request may have populated this exact explanation while this
+        # session waited (e.g. auto enrichment and Ask AI Why on the same card).
+        cached=db.scalar(select(AICache).where(AICache.key==cache_key).execution_options(populate_existing=True))
+        if cached:return json.loads(cached.content)|{'cached':True}
         if time.monotonic()-_last_call < 2:
             return default | {'limitation': 'AI rate limit: showing statistical template.'}
         _last_call = time.monotonic()
@@ -58,7 +63,8 @@ def explain(db, scope, task, facts, fallback):
                 return default
             validated = Explanation.model_validate(output)
             response = validated.model_dump() | {'source': 'OpenAI-generated explanation'}
-            db.add(AICache(key=cache_key, content=json.dumps(response)))
+            from sqlalchemy.dialects.sqlite import insert
+            db.execute(insert(AICache).values(key=cache_key,content=json.dumps(response)).on_conflict_do_nothing(index_elements=['key']))
             db.commit()
             return response
         except (OpenAIError, ValidationError, ValueError):
