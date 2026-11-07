@@ -4,6 +4,12 @@
 
 Supporting message: What you love. Where your dollar goes further.
 
+## Current repository status — 2026-11-08 (JST)
+
+The AI Shopping Strategy Engine is already merged into `main`: merge commit `a7fb8a0` (implementation `ebab01e`), following the FX merge `5af176e`. At the start of the final submission checks, local `main` and the recorded `origin/main` pointed to `a7fb8a0`. The final label/link/documentation polish builds on that baseline. Its original verification took place before commit and publication; the owner subsequently requested GitHub publication and integration into `main`. Consult the subsequent `main` history for the final integration commit. Repository visibility remains Private; this work makes no visibility change. MIT License is retained.
+
+Current final verification and merchant-review instructions: [final-submission-check.md](final-submission-check.md). The historical sections below describe evidence collected at their stated dates, rather than tests rerun during the final polish.
+
 ## Architecture and data flow
 
 The existing Python/React app is extended, not rebuilt. History statistics and current OpenAI category hypotheses feed the existing interest plan. Genuine Frankfurter daily observations support relative currency comparisons. A new deterministic strategy engine consumes that plan, selected reference period/currency, preferences and normalized real candidates.
@@ -92,9 +98,9 @@ Automated tests use mocked FX/product/LLM data for edge cases; their results are
 
 No video was overwritten or recreated in this revision. No new real/Sandbox payment, external-merchant purchase automation, GitHub push or visibility change is part of this work. Existing secrets and completed payment data remain unchanged.
 
-## Verification
+## Historical implementation verification — 2026-11-07
 
-Final executed checks (2026-11-07):
+Checks executed for the original implementation (2026-11-07); see the final-check report for the subsequent rerun:
 
 - Backend: **139 passed**, including the existing PayPal regression suite and a two-session explanation-cache concurrency regression. One existing Starlette/httpx deprecation warning remains.
 - Frontend: **46 passed** across seven test files. This includes the strategy panel, source/access evidence, action routing, reference-period changes, navigation without extra product calls, and existing automatic discovery tests.
@@ -108,7 +114,7 @@ Final executed checks (2026-11-07):
 
 The concurrency bug discovered during live verification was fixed by checking the cache again after acquiring the explanation lock and using conflict-safe SQLite inserts. The regression verifies a single model call for two concurrent requests. No model upgrade or new service was introduced.
 
-## Changed-file inventory
+## Historical implementation changed-file inventory — 2026-11-07
 
 New files:
 
@@ -126,5 +132,5 @@ Modified frontend files: `frontend/index.html`, `frontend/src/App.tsx`, `fronten
 
 Other changes: `scripts/refresh_curated.py`, `tests/test_ai.py`, `tests/test_automatic_discovery.py`, `.env.example`, `README.md`, `docs/fx-driven-discovery.md`, `docs/implementation-status.md`.
 
-Working branch: `feature/shopping-strategy`, based on main `5af176e`. Changes were not committed, merged or pushed. MIT License, actual .env, PayPal configuration/payment records, video assets and their Git exclusions are preserved.
+Historical development state before integration: work was performed on `feature/shopping-strategy`, based on `5af176e`. It was subsequently committed as `ebab01e`, merged into `main` as `a7fb8a0`, and pushed. The final submission polish follows that implementation. MIT License, actual .env, PayPal configuration/payment records, video assets and their Git exclusions are preserved.
 

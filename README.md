@@ -12,6 +12,8 @@ USD estimated totals, and United States delivery**. It connects:
 → external store or explicitly approved Demo Merchant Sandbox checkout.**
 
 
+The Strategy Engine is integrated into `main` (`a7fb8a0`). The repository remains **Private** until the owner changes it for submission; no visibility change is part of this work. See [final submission checks](docs/final-submission-check.md) for final-polish verification, integration history and merchant approval instructions. Earlier dated verification records remain historical.
+
 ## Shopping strategy (current product concept)
 
 Commerce Radar advises where to **explore shopping**, at home or abroad, using personal interests, daily FX evidence and actual shopping sources. It does not always recommend buying overseas.
@@ -22,7 +24,9 @@ Commerce Radar advises where to **explore shopping**, at home or abroad, using p
 
 The home-page **Your AI Shopping Strategy** card appears from cache-only deterministic Python output, without waiting for external services. It shows the primary interest, strategy, reference period, evidence status, actual source links/access conditions, and working product/chart/comparison/concierge actions. OpenAI can enrich the explanation asynchronously in two or three short sentences; unavailability leaves the Python explanation intact. The user can choose domestic, overseas or comparison search priority without being blocked by the automatic assessment. Preferences are per persona in the existing chat state and Clear Chat resets them.
 
-Initial UX thresholds are configurable: ±0.5% is neutral/marginal, 0.5–1% is small, and **above 1% plus at least USD 1 of hypothetical listing-price difference** is potentially meaningful. These are product-design defaults, not universal economic thresholds. `STRATEGY_NEUTRAL_PERCENT`, `STRATEGY_MEANINGFUL_PERCENT`, `STRATEGY_MINIMUM_DIFFERENCE_USD` and `STRATEGY_MINIMUM_INTEREST` control them. Mathematics still records tiny positive/negative FX correctly; marginal items stay in Personal Discovery rather than the strong FX-find section.
+Decision thresholds are configurable: ±0.5% provides no compelling FX reason to prioritize overseas; **above 1% plus at least USD 1 of hypothetical listing-price difference**, interest at least 40/100, and fresh verified listing/FX evidence are required for a meaningful shopping opportunity. These are product-design defaults, not universal economic thresholds. `STRATEGY_NEUTRAL_PERCENT`, `STRATEGY_MEANINGFUL_PERCENT`, `STRATEGY_MINIMUM_DIFFERENCE_USD` and `STRATEGY_MINIMUM_INTEREST` control them. Mathematics still records tiny positive/negative FX correctly; marginal items stay in Personal Discovery rather than the strong FX-find section.
+
+Display labels preserve the mathematical ±0.01% classification: positive movements above 0.01% and up to the meaningful percentage threshold read **Slight FX Improvement**; negative movements below −0.01% read **Unfavorable FX Trend**; the remaining band reads **Neutral FX Trend**. A larger positive currency movement alone reads **Favorable Currency Trend — Product Advantage Unverified**. Only listings satisfying all strategy evidence gates read **Meaningful Shopping Opportunity**. The FX map/currency strip describe currencies; the personalized map, top strategy and product cards can describe evidenced listings. These are hypothetical unchanged-price comparisons, not confirmed discounts.
 
 Shopping-site evidence is separate from price evidence and legal seller origin. The curated KINTO source is marked US-market only because its official FAQ explicitly describes US delivery regions. The Apple search adapter explicitly requests country=US and identifies a US storefront; it does not claim the seller is US-based. No per-item shipping costs, taxes, payment acceptance or cheapest delivered price are inferred. User-reviewed merchant link policies remain in force.
 

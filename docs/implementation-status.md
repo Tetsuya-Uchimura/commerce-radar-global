@@ -1,9 +1,17 @@
-# US/USD enhancement — implementation and verification
+# Commerce Radar — implementation and verification
+
+## Current repository status — 2026-11-08 (JST)
+
+The AI Shopping Strategy Engine is already merged into `main`: merge commit `a7fb8a0` (implementation `ebab01e`), following the FX merge `5af176e`. At the start of the final submission checks, local `main` and the recorded `origin/main` pointed to `a7fb8a0`. The final label/link/documentation polish builds on that baseline. Its original verification took place before commit and publication; the owner subsequently requested GitHub publication and integration into `main`. Consult the subsequent `main` history for the final integration commit. Repository visibility remains Private; this work makes no visibility change. MIT License is retained.
+
+Current final verification and merchant-review instructions: [final-submission-check.md](final-submission-check.md). The historical sections below describe evidence collected at their stated dates, rather than tests rerun during the final polish.
+
+## Historical US/USD enhancement record — 2026-11-04
 
 ## Phase 0 — audit and preservation
 
 - Reviewed React/FastAPI/SQLite, purchase APIs, PayPal lifecycle, Frankfurter, OpenAI,
-  map/catalog, tests and ignore rules. Git remains uninitialized.
+  map/catalog, tests and ignore rules. Git was uninitialized at this initial audit; the current repository is initialized and merged as described above.
 - Created source ZIP and consistent DB backups at
   `.migration-backups/20261104-084956-us-enhancement/`.
 - Existing `.env`, account credentials and successful legacy orders were not overwritten.
@@ -356,11 +364,11 @@ links. No backend, secret, provider/cache or payment behavior changed.
 
 Validation: 96 backend tests, 32 frontend tests and production build passed. Git-visible publication audit passed for 103 candidate files with zero forbidden artifacts or detected credential/private-key files. Backend restarted for policy activation.
 
-## FX-driven concept refinement — 2026-11-07
+## Historical FX-driven concept refinement — 2026-11-07
 
-Implemented the FX-first currency selection/search/evidence pipeline. See [fx-driven-discovery.md](fx-driven-discovery.md) for formulas, actual EUR/GBP/JPY checks, complete changed-file list, limitations and the three-minute judging sequence. Verification: 114 backend tests, 36 frontend tests, production build, clean install and publication audit passed. No push or visibility change; existing credentials and final video preserved.
+Implemented the FX-first currency selection/search/evidence pipeline. See [fx-driven-discovery.md](fx-driven-discovery.md) for formulas, actual EUR/GBP/JPY checks, complete changed-file list, limitations and the three-minute judging sequence. Verification: 114 backend tests, 36 frontend tests, production build, clean install and publication audit passed. No push occurred during that verification stage; the FX changes were subsequently merged and pushed as `5af176e`. Visibility was not changed; existing credentials and final video were preserved.
 
-## AI Shopping Strategy Engine — 2026-11-07
+## Historical AI Shopping Strategy Engine implementation — 2026-11-07
 
 Implemented deterministic Explore Overseas / US Stores First / Compare Both decisions, a cache-only immediate strategy endpoint, the responsive home strategy panel, evidenced shopping-site recommendations, contextual actions and map focus, per-persona overrides, explicit Ask AI Why without intent/product-search calls, and conservative comparison sections. Tiny FX differences no longer receive strong FX-find messaging. Existing FX, search, caches, history, model settings and Demo Merchant Sandbox boundaries remain.
 
@@ -368,4 +376,4 @@ Final verification: **139 backend tests and 46 frontend tests passed**; producti
 
 Real source metadata supports HARIO Europe EUR 59.90 and KINTO US-storefront USD 24.80, with the latter's official FAQ as market evidence. Archived genuine FX/price observations reproduce all three strategies without inventing live outcomes. The initial cache-only strategy responded in approximately 0.08 seconds locally; this is not a performance guarantee.
 
-See [shopping-strategy.md](shopping-strategy.md) for architecture, thresholds, real versus mocked/historical evidence, complete changed-file inventory, limitations and the sub-three-minute recording sequence. Branch feature/shopping-strategy; no commit/merge/push, visibility change, new payment or video overwrite. Existing credentials and completed payment records were preserved.
+See [shopping-strategy.md](shopping-strategy.md) for architecture, thresholds, real versus mocked/historical evidence, complete changed-file inventory, limitations and the sub-three-minute recording sequence. The original verification preceded commit/merge/push from `feature/shopping-strategy`; integration subsequently completed as `a7fb8a0` on `main`. No visibility change, new payment or video overwrite occurred. Existing credentials and completed payment records were preserved.

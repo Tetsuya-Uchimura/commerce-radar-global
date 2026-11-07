@@ -51,6 +51,7 @@ def observed_market(p,as_of=None):
 
 def decide(plan,items,conditions=None):
     """Pure decision: provided numerical FX/product evidence is the only input."""
+    from .fx_opportunities import display_label
     conditions=conditions or {};limits=thresholds();intel=plan['fx_intelligence']
     historical_day=intel['as_of'] if intel['mode']=='historical' else None
     us_market=lambda p:observed_market(p,historical_day)
@@ -126,7 +127,8 @@ def decide(plan,items,conditions=None):
         'thresholds':{k:str(v) for k,v in limits.items()},'fx_signature':intel['signature'],'analysis_version':plan['version'],
         'context':context(conditions),
         'analysis_signature':plan['signature'],'evidence_count':len(relevant),'meaningful_product_ids':[p['id'] for p in ranked],
-        'fx_evidence':[{'currency':m['currency'],'rate_date':m['rate_date'],'reference_date':m['selected']['reference_date'],'purchasing_power_advantage':m['selected']['purchasing_power_advantage']} for m in markets]}
+        'fx_evidence':[{'currency':m['currency'],'rate_date':m['rate_date'],'reference_date':m['selected']['reference_date'],'purchasing_power_advantage':m['selected']['purchasing_power_advantage'],
+            'display_label':display_label(m,any(p['currency']==m['currency'] for p in strong))} for m in markets]}
     fingerprint=json.loads(json.dumps(result))
     for source in fingerprint['recommended_sources']:
         if source.get('link_access'):source['link_access'].pop('cached',None)

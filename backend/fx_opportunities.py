@@ -26,20 +26,32 @@ def comparison(current,reference):
         'fx_score':float(min(D(100),max(D(0),power*10))),
         'classification':'favorable' if power>D('0.01') else 'unfavorable' if power<D('-0.01') else 'neutral'}
 
+def display_label(market,meaningful=False):
+    """Presentation only: mathematical movements do not establish a shopping benefit."""
+    if not market or not market.get('eligible') or not market.get('selected'):
+        return 'Stale FX Data' if market and market.get('stale') and market.get('current_rate') else 'Insufficient FX Data'
+    from .shopping_strategy import thresholds
+    power=D(market['selected']['purchasing_power_advantage'])
+    if power < D('-0.01'):return 'Unfavorable FX Trend'
+    if power <= D('0.01'):return 'Neutral FX Trend'
+    if power <= thresholds()['meaningful_percent']:return 'Slight FX Improvement'
+    return 'Meaningful Shopping Opportunity' if meaningful else 'Favorable Currency Trend — Product Advantage Unverified'
+
 def summarize(currency,series,period='90D',today=None,fetched_at=None,mode='live'):
     today=today or date.today()
     points=sorted({day:fx.safe_decimal(rate) for day,rate in series if day<=today and fx.safe_decimal(rate)}.items())
     result={'currency':currency,'period':period,'mode':mode,'source':fx.provider.source,'current_rate':None,
         'rate_date':None,'retrieved_at':fetched_at,'stale':True,'comparisons':{},'selected':None,'eligible':False}
-    if not points:return result|{'status':'insufficient_data'}
+    if not points:return result|{'status':'insufficient_data','display_label':'Insufficient FX Data'}
     latest,current=points[-1];stale=(today-latest).days>4
     for name,days in PERIODS.items():
         target=latest-timedelta(days=days)
         rows=[(day,rate) for day,rate in points if 0<=(target-day).days<=7]
         result['comparisons'][name]=comparison(current,rows[-1][1])|{'reference_rate':str(rows[-1][1]),'reference_date':rows[-1][0].isoformat(),'target_date':target.isoformat()} if rows else None
     selected=result['comparisons'][period]
-    return result|{'current_rate':str(current),'rate_date':latest.isoformat(),'stale':stale,'selected':selected,
+    result=result|{'current_rate':str(current),'rate_date':latest.isoformat(),'stale':stale,'selected':selected,
         'eligible':not stale and selected is not None,'status':'stale' if stale else selected['classification'] if selected else 'insufficient_data'}
+    return result|{'display_label':display_label(result)}
 
 def intelligence(db,period='90D',mode='live',refresh=True):
     if period not in PERIODS:raise ValueError('Unsupported FX opportunity period')
