@@ -40,7 +40,7 @@ async def lifespan(app):
     yield
 
 
-app=FastAPI(title='Commerce Radar — Global Opportunity Discovery',version='3.1.0',lifespan=lifespan,
+app=FastAPI(title='Commerce Radar — AI Shopping Strategy Engine',version='3.1.0',lifespan=lifespan,
     dependencies=[Depends(APIKeyHeader(name='X-Commerce-Radar',auto_error=False))],
     description='Local synthetic shopping discovery demo. Set X-Commerce-Radar to 1 via Authorize for writes; create a demo session first.')
 app.add_middleware(CORSMiddleware,allow_origins=[APP_URL],allow_credentials=True,
@@ -83,6 +83,7 @@ class Persona(StrictModel):
 
 
 class DiscoveryQuery(BaseModel):
+    shopping_priority:Literal['auto','domestic','overseas','compare']|None=None
     fx_period:Literal['30D','90D','1Y']='90D'
     opportunity_mode:Literal['live','historical']='live'
     listing_currency:Literal['EUR','GBP','JPY','AUD','CAD','CHF','SEK','SGD','USD']|None=None
@@ -110,6 +111,8 @@ class SaveInput(StrictModel):
 
 
 class Question(StrictModel):
+    explain_strategy:bool=False
+    strategy_signature:str|None=Field(default=None,min_length=24,max_length=24,pattern='^[a-f0-9]+$')
     message:str=Field(min_length=1,max_length=800)
     offer_id:int|None=Field(default=None,gt=0)
 
@@ -181,7 +184,9 @@ def discover(q:DiscoveryQuery=Depends(),user=Depends(principal),db:DBSession=Dep
     rates,items,nations=data_context(db,user.id,q)
     person=discovery.profile(db,user.id,q.fx_period,q.opportunity_mode)
     from .discovery_markets import markets
+    from .shopping_strategy import current
     return {'profile':person,'countries':nations,'fx_intelligence':person['search_plan']['fx_intelligence'],
+        'strategy':current(db,user.id,person['search_plan'],[],q.model_dump()),
         'discovery_markets':markets(db,user.id,q.country,q.category,q.excluded_countries.split(',') if q.excluded_countries else [],person['search_plan']),
         'offers':[p for p in items if not q.country or p['country_code']==q.country],
         'fx':rates,'catalog_source':'Synthetic Demo Catalog','weights':discovery.weights(),
@@ -191,6 +196,16 @@ def discover(q:DiscoveryQuery=Depends(),user=Depends(principal),db:DBSession=Dep
 @app.get('/api/profile')
 def profile(user=Depends(principal),db:DBSession=Depends(get_db)):
     return discovery.profile(db,user.id)|{'name':user.display_name,'persona':user.persona}
+
+
+@app.get('/api/strategy/initial')
+def initial_strategy(q:DiscoveryQuery=Depends(),user=Depends(principal),db:DBSession=Depends(get_db)):
+    from .search_plan import build
+    from .shopping_strategy import current
+    # Show an honest immediate assessment even on a cold/offline FX startup.
+    # Live discovery proceeds independently; this path never calls providers.
+    plan=build(db,user.id,q.fx_period,q.opportunity_mode,refresh_fx=False)
+    return current(db,user.id,plan,[],q.model_dump())|{'provisional':True}
 
 
 @app.post('/api/profile')
@@ -248,7 +263,7 @@ def concierge(body:Question,q:DiscoveryQuery=Depends(),user=Depends(principal),d
     message=body.message.strip()
     if not message or any(ord(c)<32 and c not in '\n\t' for c in message):raise HTTPException(422,'Enter a readable shopping question.')
     from .conversation import respond
-    return respond(db,user.id,message,q,body.offer_id)
+    return respond(db,user.id,message,q,body.offer_id,body.strategy_signature,body.explain_strategy)
 
 
 @app.post('/api/demo/reset')

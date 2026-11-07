@@ -83,6 +83,7 @@ def normalize_store(rows):
             'estimated_total_usd':None,'image_url':None,'url':url,'description':str(row.get('description') or '')[:250],
             'shipping_available':None,'taxes':None,'quality_evidence':{'rating':row.get('averageUserRating'),'count':row.get('userRatingCount'),'source':'Apple listing ratings'},
             'merchant_reliability_evidence':None,'source':'Apple iTunes Search API · US App Store','verified_at':stamp,
+            'storefront_market':'US','storefront_market_evidence':{'source':'https://itunes.apple.com/search?country=US','observed_at':stamp,'basis':'Official API request explicitly selected country=US; US storefront, not seller origin.'},
             'verification':'Official US-store listing/name/upfront price observed. Merchant origin, sales tax, in-app costs and device eligibility are not guaranteed.',
             'paypal_checkout':False,'purchase_method':'Visit Store','kind':'external_digital','query':None})
     return items[:8]
@@ -114,7 +115,7 @@ def enrich(db,uid,items,query='',budget_minor=None,country=None,excluded_countri
     plan=build(db,uid,fx_period,fx_mode)
     purchased_names={name.casefold() for name in db.scalars(select(Purchase.product_name).where(Purchase.user_id==uid,Purchase.deleted==False))}
     currencies={p.get('currency') for p in items if p.get('price_minor') is not None}-{None,'USD'}
-    rates=fx.bundle(db,'live')['rates'] if currencies else {}
+    rates=({m['currency']:{'rate':m['current_rate'],'source':fx.provider.source,'rate_date':m['rate_date'],'stale':m['stale'],'last_updated':m['retrieved_at'],'mode':'historical'} for m in plan['fx_intelligence']['markets']} if fx_mode=='historical' else fx.bundle(db,'live')['rates']) if currencies else {}
     ranked=[]
     for source in items:
         from .merchant_access import decision
@@ -165,6 +166,11 @@ def enrich(db,uid,items,query='',budget_minor=None,country=None,excluded_countri
         from .fx_opportunities import product_evidence
         market=next((m for m in plan['fx_intelligence']['markets'] if m['currency']==currency),None)
         p['fx_opportunity']=product_evidence(p,market,interest,novelty,fx_mode)
+        from .shopping_strategy import thresholds
+        limits=thresholds();op=p['fx_opportunity'];op['strategy_strength']='unverified'
+        if op['verified']:
+            power=Decimal(market['selected']['purchasing_power_advantage'])
+            op['strategy_strength']=('meaningful' if power>limits['meaningful_percent'] and Decimal(op['difference_usd_minor'])>=limits['minimum_difference_usd']*100 and Decimal(str(interest))>=limits['minimum_interest'] else 'small' if power>limits['neutral_percent'] else 'unfavorable' if power < -limits['neutral_percent'] else 'marginal')
         p['price_source']=p.get('source') if price is not None else None
         p['payment_method_availability']=p.get('payment_method_availability')
         p['evidence_confidence']='Observed provider listing' if p['fx_opportunity']['listing_fresh'] and price is not None else 'Incomplete or stale listing evidence'
@@ -173,25 +179,34 @@ def enrich(db,uid,items,query='',budget_minor=None,country=None,excluded_countri
     ranked.sort(key=lambda p:(-p['recommendation_score'],p['id']))
     return ranked
 
-def explore(db,uid,query=None,country=None,provider_name='auto',goal='best',budget_minor=None,excluded_countries=None,kind='any',force=False,fx_period='90D',fx_mode='live',listing_currency=None):
+def explore(db,uid,query=None,country=None,provider_name='auto',goal='best',budget_minor=None,excluded_countries=None,kind='any',force=False,fx_period='90D',fx_mode='live',listing_currency=None,shopping_priority=None,category=None):
     from .search_plan import build
     plan=build(db,uid,fx_period,fx_mode)
+    from .shopping_strategy import preferences,decide,current,thresholds
+    conditions={'category':category,'listing_currency':listing_currency,'shopping_priority':preferences(db,uid,{'shopping_priority':shopping_priority})}
+    provisional=decide(plan,[],conditions)
     proposed=query or (' OR '.join(q['query'] for q in plan['queries'][:2]) if plan['queries'] else 'international creative products')
     actual_query=(proposed+' '+country+' products' if country else proposed)[:200]
-    target=listing_currency or next(iter(plan['fx_intelligence']['favorable_currencies']),None)
+    meaningful=[m['currency'] for m in plan['fx_intelligence']['markets'] if m['eligible'] and Decimal(m['selected']['purchasing_power_advantage'])>thresholds()['meaningful_percent']]
+    target=listing_currency or next(iter(meaningful),None)
+    priority=conditions['shopping_priority']
+    if priority=='domestic' or priority=='auto' and provisional['strategy']=='us_stores_first' and not listing_currency:
+        actual_query=(proposed[:140]+'; US shopping sources; USD listings')[:200];target='USD'
     if target and target!='USD':actual_query=(actual_query[:120]+'; original listings priced in '+target+'; confirm listing currency')[:200]
+    elif priority=='overseas':actual_query=(actual_query[:140]+'; overseas sources; preserve original listing currency')[:200]
+    if priority=='compare' or priority=='auto' and provisional['strategy']=='compare_both':actual_query=(actual_query[:165]+'; compare US and overseas sources')[:200]
     if provider_name=='curated':
         from .curated import candidates
-        result={'items':candidates(proposed,listing_currency),'cached':True,'error':None,'source':'Curated official listing observations'}
+        result={'items':candidates(proposed,listing_currency,fx_mode),'cached':True,'error':None,'source':'Curated official listing observations'}
     else:result=search(db,uid,actual_query,country,provider_name,force)
     result=dict(result)
     if provider_name in ('auto','channel3') and result.get('items') and not result.get('error'):
         from .curated import candidates
-        result['items']=list(result['items'])+candidates(proposed,listing_currency)
+        result['items']=list(result['items'])+candidates(proposed,listing_currency,fx_mode)
     result['items']=enrich(db,uid,result['items'],proposed,budget_minor,country,excluded_countries,kind,fx_period,fx_mode)
     from .link_access import attach
     result['items']=attach(db,result['items'],force)
-    result.update(query=proposed,search_plan=plan,recommendation=recommendation(result['items'],goal,budget_minor))
+    result.update(query=proposed,search_plan=plan,recommendation=recommendation(result['items'],goal,budget_minor),strategy=current(db,uid,plan,result['items'],conditions),search_priority=priority)
     return result
 
 def _legacy_recommendation(items,goal='best',budget_minor=None):
@@ -212,7 +227,10 @@ def recommendation(items,goal='best',budget_minor=None):
     # Confirmed error/restriction pages must never be the recommended destination.
     # Older callers without link metadata remain compatible; explore always checks.
     had_candidates=bool(items)
-    fx_candidates=sorted((p for p in items if (p.get('fx_opportunity') or {}).get('favorable') and (not p.get('link_access') or p['link_access']['status'] in ('reachable','user_confirmed','user_pending'))),key=lambda p:-(p.get('fx_recommendation_score') or 0))
+    def meaningful(p):
+        f=p.get('fx_opportunity') or {}
+        return f.get('strategy_strength')=='meaningful' if 'strategy_strength' in f else f.get('favorable')
+    fx_candidates=sorted((p for p in items if meaningful(p) and (not p.get('link_access') or p['link_access']['status'] in ('reachable','user_confirmed','user_pending'))),key=lambda p:-(p.get('fx_recommendation_score') or 0))
     items=[p for p in items if not p.get('link_access') or p['link_access']['status'] in ('reachable','user_confirmed')]
     result=_legacy_recommendation(items,goal,budget_minor)
     ranked=sorted(items,key=lambda p:-(p.get('recommendation_score') or 0))
@@ -220,8 +238,8 @@ def recommendation(items,goal='best',budget_minor=None):
     complete=[p for p in ranked if p.get('estimated_total_usd') is not None and not p.get('total_unknown',['unverified'])
         and (budget_minor is None or p['estimated_total_usd']<=budget_minor)]
     value=min(complete,key=lambda p:p['estimated_total_usd']) if complete else None
-    backed=sorted((p for p in ranked if (p.get('fx_opportunity') or {}).get('favorable')),key=lambda p:-(p.get('fx_recommendation_score') or 0))
+    backed=sorted((p for p in ranked if meaningful(p)),key=lambda p:-(p.get('fx_recommendation_score') or 0))
     return result|{'best_discovery':discovery,'best_verified_value':value,'best_fx_backed':backed[0] if backed else None,
-        'fx_backed_finds':fx_candidates,'personal_discoveries':ranked,'fx_reason':'45% interest, 35% positive USD purchasing power, 10% novelty, 10% fresh evidence (configurable). Minimum interest 40/100. Listing currency controls FX; no merchant-origin inference. Candidates awaiting manual link review keep navigation disabled.' if fx_candidates else 'No relevant, fresh, favorable foreign-currency listing is verified for this period. Personal discoveries remain separate.',
+        'fx_backed_finds':fx_candidates,'personal_discoveries':ranked,'fx_reason':'45% interest, 35% positive USD purchasing power, 10% novelty, 10% fresh evidence (configurable). Minimum interest 40/100. Listing currency controls FX; no merchant-origin inference. Candidates awaiting manual link review keep navigation disabled.' if fx_candidates else 'No listing meets the meaningful FX and absolute-dollar thresholds for this period. Personal discoveries remain separate.',
         'discovery_reason':'Best observed interest/query/evidence match; final costs and budget eligibility may be unverified. No lowest-price guarantee.' if discovery else 'No candidate link was confirmed reachable from this server. Review the unavailable/unconfirmed group.' if had_candidates else 'No matching real products were found.',
         'value_reason':'Lowest verified complete USD total among these candidates only.' if value else 'Best Verified Value unavailable: complete evidenced shipping, tax and FX costs are missing.'}

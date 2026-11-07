@@ -1,6 +1,8 @@
-# Commerce Radar — FX-Driven Global Opportunity Discovery
+# Commerce Radar — AI Shopping Strategy Engine
 
-**What you love. Where your dollar goes further.**
+**Know What to Buy. Know Where to Buy.**
+
+What you love. Where your dollar goes further.
 
 A map-first shopping concierge for a **United States consumer**, using **USD budgets,
 USD estimated totals, and United States delivery**. It connects:
@@ -10,7 +12,33 @@ USD estimated totals, and United States delivery**. It connects:
 → external store or explicitly approved Demo Merchant Sandbox checkout.**
 
 
-## FX-first recommendations (current implementation)
+## Shopping strategy (current product concept)
+
+Commerce Radar advises where to **explore shopping**, at home or abroad, using personal interests, daily FX evidence and actual shopping sources. It does not always recommend buying overseas.
+
+- **Explore Overseas:** a relevant, fresh foreign-currency listing has both a potentially meaningful purchasing-power movement and a meaningful hypothetical USD difference.
+- **US Stores First:** usable FX evidence provides no compelling foreign-currency advantage. This is search priority, not proof that US stores are cheaper. A specific US-site recommendation requires explicit US storefront-market evidence; USD prices and domain names do not qualify.
+- **Compare Both:** FX is mixed, marginal, missing, or relevant price evidence is insufficient. This is a normal result, not an error.
+
+The home-page **Your AI Shopping Strategy** card appears from cache-only deterministic Python output, without waiting for external services. It shows the primary interest, strategy, reference period, evidence status, actual source links/access conditions, and working product/chart/comparison/concierge actions. OpenAI can enrich the explanation asynchronously in two or three short sentences; unavailability leaves the Python explanation intact. The user can choose domestic, overseas or comparison search priority without being blocked by the automatic assessment. Preferences are per persona in the existing chat state and Clear Chat resets them.
+
+Initial UX thresholds are configurable: ±0.5% is neutral/marginal, 0.5–1% is small, and **above 1% plus at least USD 1 of hypothetical listing-price difference** is potentially meaningful. These are product-design defaults, not universal economic thresholds. `STRATEGY_NEUTRAL_PERCENT`, `STRATEGY_MEANINGFUL_PERCENT`, `STRATEGY_MINIMUM_DIFFERENCE_USD` and `STRATEGY_MINIMUM_INTEREST` control them. Mathematics still records tiny positive/negative FX correctly; marginal items stay in Personal Discovery rather than the strong FX-find section.
+
+Shopping-site evidence is separate from price evidence and legal seller origin. The curated KINTO source is marked US-market only because its official FAQ explicitly describes US delivery regions. The Apple search adapter explicitly requests country=US and identifies a US storefront; it does not claim the seller is US-based. No per-item shipping costs, taxes, payment acceptance or cheapest delivered price are inferred. User-reviewed merchant link policies remain in force.
+
+**Compare Markets** sets a comparison search priority and opens separate US storefront, foreign-currency listing, and market-unverified sections. Products are exploration candidates, not assumed equivalents. Gold rings on the existing map indicate strategy search focus only; they do not recolor the US as mathematically superior or create seller-country evidence.
+
+Strategy explanations are cached by persona, analysis version, FX/strategy signature and relevant source evidence, using the existing bounded low-cost model. Opening a chart or switching map layers causes no new paid searches or analysis. Search queries include the chosen priority/currency and retain existing caches, rate limits, debounce, version guards and Demo fallback. No Channel3 key still means automatic, clearly labelled Demo Products; no fictional product becomes a real shopping-site recommendation.
+
+For a reproducible **historical** three-strategy demonstration using archived genuine prices/rates and a synthetic Coffee profile:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/strategy_demo.py
+```
+
+This makes no network calls, purchases or developer-DB writes. `backend/fixtures/strategy_historical_prices.json` is an immutable public-price archive independent of later curated refreshes. Historical product conversions and budget filters use saved rates, never live rates. See [Shopping Strategy implementation, evidence and demo guide](docs/shopping-strategy.md) for decision rules, constraints, verification and a sub-three-minute demo sequence.
+
+## Supporting FX evidence engine
 
 The startup/persona/history pipeline first calculates currency opportunities, combines the current interest plan with favorable currencies, then searches for original listings in the target currency. The strongest available currency is the default query target; selecting a currency/country targets that listing currency. Search intent is never treated as evidence of returned currency or seller country. Channel3 can still return USD listings: those receive no foreign FX benefit. If no currency is favorable or history is missing, the UI reports that honestly and keeps personal discovery separate.
 

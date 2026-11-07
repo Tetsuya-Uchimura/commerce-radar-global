@@ -25,7 +25,7 @@ def extract(html,url,stamp):
             offers=node.get('offers',[]);offers=offers if isinstance(offers,list) else [offers]
             for offer in offers[:1]:
                 currency=offer.get('priceCurrency');amount=offer.get('price');link=safe_url(offer.get('url') or url)
-                if currency not in ('EUR','GBP','JPY') or amount is None or not link:continue
+                if currency not in ('EUR','GBP','JPY','USD') or amount is None or not link:continue
                 try:
                     value=Decimal(str(amount))
                     if not value.is_finite() or value<0:continue
@@ -41,7 +41,7 @@ def extract(html,url,stamp):
     if not items:
         meta={k:html_module.unescape(v) for k,v in re.findall(r'<meta\s+property="([^"]+)"\s+content="([^"]*)"',html,re.I)}
         price=meta.get('og:price:amount');currency=meta.get('og:price:currency');name=meta.get('og:title')
-        if price and currency in ('EUR','GBP','JPY') and name:
+        if price and currency in ('EUR','GBP','JPY','USD') and name:
             try:
                 amount=Decimal(price.replace(',','.'))
                 if amount.is_finite() and amount>=0:
@@ -55,9 +55,11 @@ def extract(html,url,stamp):
             except Exception:pass
     return items
 def main():
-    urls=['https://www.hario.co.uk/products/hario-v60-coffee-dripper-plastic-size-02-white','https://jp.kurasu.kyoto/products/hario-v60-dripper']
+    urls=['https://www.hario.co.uk/products/hario-v60-coffee-dripper-plastic-size-02-white','https://jp.kurasu.kyoto/products/hario-v60-dripper','https://kinto-usa.com/products/27574']
     observations=[];stamp=datetime.now(timezone.utc).isoformat()
     with httpx.Client(timeout=15,follow_redirects=False) as client:
+        us_faq=client.get('https://kinto-usa.com/pages/faq')
+        us_market_confirmed=us_faq.status_code==200 and 'Western USA' in us_faq.text and 'Eastern USA' in us_faq.text
         collection=client.get('https://www.hario-europe.com/collections/v60-dripper/ceramic')
         if collection.status_code==200:
             links=list(dict.fromkeys(re.findall(r'href="(?:/collections/[^" ]+)?(/products/[^"?# ]+)',collection.text)))
@@ -65,6 +67,10 @@ def main():
         for url in urls:
             try:
                 r=client.get(url);items=extract(r.text,url,stamp) if r.status_code==200 else []
+                if url.startswith('https://kinto-usa.com/') and us_market_confirmed:
+                    for p in items:
+                        p['storefront_market']='US'
+                        p['storefront_market_evidence']={'source':'https://kinto-usa.com/pages/faq','observed_at':stamp,'basis':'Publisher FAQ explicitly describes US delivery regions; market evidence only, no legal-country or per-item shipping-cost assertion.'}
                 observations.extend(items[:2]);print(json.dumps({'url':url,'status':r.status_code,'offers':[(i['name'],i['currency'],i['price_minor']) for i in items[:2]]},ensure_ascii=True))
             except httpx.HTTPError as e:print(type(e).__name__,url)
     target=ROOT/'backend/fixtures/curated_products.json';target.parent.mkdir(exist_ok=True)

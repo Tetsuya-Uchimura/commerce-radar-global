@@ -18,6 +18,7 @@ const requests:string[]=[];
 const posts:{path:string;body:Record<string,unknown>}[]=[];
 let persona='coffee';
 let productScenario='demo';
+function strategy(priority='auto'){return {strategy:priority==='domestic'?'us_stores_first':'compare_both',calculated_strategy:'compare_both',display_name:priority==='domestic'?'US Stores First':'Compare Both',title:'Compare shopping sources for your interests',summary:'No strong verified advantage. Explore both markets.',primary_interest:persona==='coffee'?'Coffee':'Outdoor',recommended_currencies:priority==='domestic'?['USD']:['USD','EUR'],fx_period:'90D',fx_mode:'live',as_of:'2026-11-07',reason_codes:[],recommended_sources:[],evidence_status:'search_suggestion',limitations:[],shopping_priority:priority,user_override:priority!=='auto',signature:'000000000000000000000003',user_id:persona==='coffee'?1:3,analysis_version:1,analysis_signature:'',meaningful_product_ids:[],fx_evidence:[]};}
 const profile=():Profile=>({user_id:persona==='coffee'?1:3,interests:[{category:persona==='coffee'?'Coffee':'Outdoor',score:100,purchases:20}],emerging_interests:[],preferred_price_range:{currency:'USD',min:2000,max:5000},purchase_count:36,frequency_per_30_days:6,product_preferences:[],international_countries:[],budget_usd:15000,customized:false,sources:{synthetic_global:36},reference_date:'2026-11-03'});
 beforeEach(()=>{requests.length=0;posts.length=0;persona='coffee';productScenario='demo';vi.stubGlobal('fetch',vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
  const url=String(input);requests.push(url);
@@ -31,7 +32,7 @@ beforeEach(()=>{requests.length=0;posts.length=0;persona='coffee';productScenari
   const body=JSON.parse(String(init?.body));const demo=productScenario==='demo'||productScenario==='failure'||body.demo_only;
   const item={link_access:{status:productScenario==='restricted'?'restricted':productScenario==='broken'?'unavailable':'reachable',reason:productScenario==='restricted'?'Browser verification required':'Observed HTTP response',checked_at:'2026-11-04T00:00:00Z',scope:'server',limitation:'Browser may differ'},id:'observed',name:persona==='coffee'?'Observed Coffee Dripper':'Observed Trail Kit',merchant:'Observed Store',merchant_country:null,price_minor:2500,currency:'USD',listing_usd_minor:2500,estimated_total_usd:null,url:'https://observed.store/products/dripper',source:'Channel3 product API',verified_at:'2026-11-04T00:00:00Z',data_source:productScenario==='cached'?'Cached Product':'Real Product',recommendation_score:75,verification:'Observed provider listing'};
   const items=demo||productScenario==='empty'?[]:[item];
-  result={user_id:persona==='coffee'?1:persona==='outdoor'?3:4,version:1,analysis_signature:'',signature:'scenario',mode:demo?'Demo Products':productScenario==='cached'?'Cached Real Products':'Real Products',items,unknown_origin:items,countries:[],error:productScenario==='failure'||productScenario==='cached'?'Channel3 authentication failed.':null,notice:demo?'Sample product data · Live product search unavailable':'Origin Unknown products do not generate country scores.',recommendation:{best_discovery:items[0]||null,best_verified_value:null,discovery_reason:'Interest match only; no cheapest guarantee',value_reason:'Complete costs missing'}};
+  result={...(productScenario==='strategy'?{strategy:strategy(body.shopping_priority)}:{}),user_id:persona==='coffee'?1:persona==='outdoor'?3:4,version:1,analysis_signature:'',signature:'scenario',mode:demo?'Demo Products':productScenario==='cached'?'Cached Real Products':'Real Products',items,unknown_origin:items,countries:[],error:productScenario==='failure'||productScenario==='cached'?'Channel3 authentication failed.':null,notice:demo?'Sample product data · Live product search unavailable':'Origin Unknown products do not generate country scores.',recommendation:{best_discovery:items[0]||null,best_verified_value:null,discovery_reason:'Interest match only; no cheapest guarantee',value_reason:'Complete costs missing'}};
  }
  else if(path==='/api/products/search')result={items:[],error:null,recommendation:{reason:'No verified total for this search'}};
  else if(path==='/api/history')result=[];
@@ -43,7 +44,7 @@ beforeEach(()=>{requests.length=0;posts.length=0;persona='coffee';productScenari
    if(q.get('country'))rows=rows.filter(p=>p.country_code===q.get('country'));
    if(q.get('digital_only')==='true')rows=rows.filter(p=>p.digital);
    if(q.get('category'))rows=rows.filter(p=>p.category===q.get('category'));
-   result={profile:profile(),countries,offers:rows,fx:{effective_mode:'demo',rates:{EUR:fx},warning:null},weights:{},all_offer_count:rows.length};
+   result={...(productScenario==='strategy'?{strategy:strategy(q.get('shopping_priority')||'auto')}:{}),profile:profile(),countries,offers:rows,fx:{effective_mode:'demo',rates:{EUR:fx},warning:null},weights:{},all_offer_count:rows.length};
  }else if(path==='/api/concierge'){
   const shopping=String(init?.body).includes('日本のコーヒー');
   const buy=String(init?.body).includes('buy');
@@ -195,6 +196,24 @@ describe('global discovery journey',()=>{
   expect(await screen.findByText('Unavailable or unsafe links (1)')).toBeInTheDocument();
   expect(screen.queryByRole('region',{name:'Access-unverified product candidates'})).not.toBeInTheDocument();
   expect(screen.queryByRole('link')).not.toBeInTheDocument();
+ });
+
+ it('strategy controls navigate with context and keep chart viewing independent of product search',async()=>{
+  productScenario='strategy';render(<App/>);
+  await screen.findByText('Compare Both',{selector:'.strategy-choice'});
+  fireEvent.change(screen.getByLabelText('Shopping priority'),{target:{value:'domestic'}});
+  await screen.findByText('US Stores First',{selector:'.strategy-choice'});
+  await waitFor(()=>expect(posts.some(p=>p.path==='/api/products/automatic'&&p.body.shopping_priority==='domestic')).toBe(true));
+  expect(screen.getByText(/US Stores First · gold rings/)).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Strategy FX reference period'),{target:{value:'1Y'}});
+  await waitFor(()=>expect(posts.some(p=>p.path==='/api/products/automatic'&&p.body.fx_period==='1Y')).toBe(true));
+  fireEvent.click(screen.getByRole('button',{name:'Explore Recommended Products'}));
+  await waitFor(()=>expect(window.location.hash).toBe('#real'));
+  fireEvent.click(screen.getByRole('button',{name:'World radar'}));
+  const count=posts.filter(p=>p.path==='/api/products/automatic').length;
+  fireEvent.click(screen.getByRole('button',{name:'View Currency Trends'}));
+  await waitFor(()=>expect(window.location.hash).toBe('#fx'));
+  expect(posts.filter(p=>p.path==='/api/products/automatic')).toHaveLength(count);
  });
 
 });

@@ -11,8 +11,8 @@ export function countryColor(country:MapCountry|undefined,selected=false){
  if(!country||country.score===null)return '#293f51';
  return country.score>=80?'#8de1d6':country.score>=60?'#4f9a91':'#426b72';
 }
-type Props={layer?:'fx'|'personalized'|'verified'|'discovery'|'demo';dataMode?:string;countries:MapCountry[];selected:string;onSelect:(code:string,name:string)=>void};
-export default function WorldMap({countries,selected,onSelect,dataMode='Demo Catalog',layer='demo'}:Props){
+type Props={strategy?:string;focusCurrencies?:string[];layer?:'fx'|'personalized'|'verified'|'discovery'|'demo';dataMode?:string;countries:MapCountry[];selected:string;onSelect:(code:string,name:string)=>void};
+export default function WorldMap({countries,selected,onSelect,dataMode='Demo Catalog',layer='demo',strategy,focusCurrencies=[]}:Props){
  const [position,setPosition]=useState<{center:[number,number];zoom:number}>({center:[18,15],zoom:1});
  const [hover,setHover]=useState('');
  const [geoError,setGeoError]=useState(false);
@@ -34,7 +34,7 @@ export default function WorldMap({countries,selected,onSelect,dataMode='Demo Cat
    })}</Geographies>
    {countries.map(c=><Marker key={c.code} coordinates={[c.longitude,c.latitude]}>
     <g className="map-marker" role="button" tabIndex={0} aria-label={`Select ${c.name}`} onClick={()=>onSelect(c.code,c.name)} onKeyDown={e=>{if(e.key==='Enter')onSelect(c.code,c.name);}}>
-     <circle r={10/position.zoom} fill={countryColor(c)} opacity={0.12}/><circle r={3.2/position.zoom} fill={countryColor(c)} stroke={c.exploration?'#ffe3a4':'#d2fff2'} strokeDasharray={c.exploration?'2 1':undefined} strokeWidth={0.5/position.zoom}/>
+     {(strategy==='us_stores_first'?c.code==='US':focusCurrencies.includes(c.currency))&&<circle data-strategy-focus={c.code} r={8/position.zoom} fill="none" stroke="#e6bf7b" strokeWidth={1/position.zoom}/>}<circle r={10/position.zoom} fill={countryColor(c)} opacity={0.12}/><circle r={3.2/position.zoom} fill={countryColor(c)} stroke={c.exploration?'#ffe3a4':'#d2fff2'} strokeDasharray={c.exploration?'2 1':undefined} strokeWidth={0.5/position.zoom}/>
      <text y={-13/position.zoom} textAnchor="middle" fill="#cde8e3" fontSize={9/position.zoom} letterSpacing={1/position.zoom}>{c.code}</text>
     </g>
    </Marker>)}

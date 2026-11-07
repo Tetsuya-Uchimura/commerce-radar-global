@@ -1,3 +1,4 @@
+import type {ShoppingPriority,ShoppingStrategy} from './ShoppingStrategy';
 import {mapCountries as buildMapCountries,type MapLayer} from './mapLayers';
 import {useAutomaticDiscovery} from './useAutomaticDiscovery';
 import {useEffect,useMemo,useState,useRef} from 'react';
@@ -8,6 +9,7 @@ export type RadarState=ReturnType<typeof useRadar>;
 
 export function useRadar(){
  const analysisVersion=useRef('');
+ const [initialStrategy,setInitialStrategy]=useState<ShoppingStrategy|null>(null);
  const [mapLayer,setMapLayer]=useState<MapLayer>('fx');
  const [countryComparison,setCountryComparison]=useState<string[]>([]);
  const [fxSelection,setFXSelection]=useState({currency:'EUR',period:'1Y'});
@@ -26,7 +28,8 @@ export function useRadar(){
  const [interestDraft,setInterestDraft]=useState<string[]>([]),[budgetDraft,setBudgetDraft]=useState(15000),[mobileFilters,setMobileFilters]=useState(false),[search,setSearch]=useState('');
  const effectiveFilters=useMemo(()=>({...filters,saved_only:view==='saved'}),[filters,view]);
  const qs=useMemo(()=>query(effectiveFilters),[effectiveFilters]);
- const automatic=useAutomaticDiscovery(ready&&!!data,persona,data?.profile.user_id,data?.profile.search_plan,{query:realRequest.query||null,provider:realRequest.provider,country:filters.country||null,category:filters.category||null,budget_minor:filters.max_budget,kind:filters.digital_only?'digital':filters.physical_only?'physical':'any',excluded_countries:(filters.excluded_countries||'').split(',').filter(Boolean),goal:realRequest.goal,fx_period:filters.fx_period||'90D',opportunity_mode:filters.opportunity_mode||'live',listing_currency:filters.listing_currency},reloadData);
+ const automatic=useAutomaticDiscovery(ready&&!!data,persona,data?.profile.user_id,data?.profile.search_plan,{shopping_priority:filters.shopping_priority,query:realRequest.query||null,provider:realRequest.provider,country:filters.country||null,category:filters.category||null,budget_minor:filters.max_budget,kind:filters.digital_only?'digital':filters.physical_only?'physical':'any',excluded_countries:(filters.excluded_countries||'').split(',').filter(Boolean),goal:realRequest.goal,fx_period:filters.fx_period||'90D',opportunity_mode:filters.opportunity_mode||'live',listing_currency:filters.listing_currency},reloadData);
+ const strategy=automatic.result?.strategy||data?.strategy||initialStrategy||undefined;
  const showingDemo=automatic.result?.mode==='Demo Products';
  const fxIntelligence=data?.fx_intelligence||automatic.result?.fx_intelligence;
  const mapCountries=buildMapCountries(data?.countries||[],automatic.result,data?.discovery_markets,data?.profile.search_plan,mapLayer,showingDemo,filters.excluded_countries,fxIntelligence);
@@ -36,13 +39,14 @@ export function useRadar(){
  const profile=data?.profile;
  const personaInfo=status?.personas.find(p=>p.id===persona);
  function navigate(next:View){setView(next);setError('');setMobileFilters(false);if(next!=='payment'){history.pushState({},'',`/#${next}`);setOrder(null);}}
- function updateFilters(changes:Partial<Filters>){if(changes.category!==undefined&&changes.category!==filters.category)setRealRequest(r=>({...r,query:''}));setFilters(f=>({...f,...changes}));setCountryExplanation(null);}
+ function updateFilters(changes:Partial<Filters>){changes=Object.fromEntries(Object.entries(changes).map(([key,value])=>[key,value==null?(['country','category','excluded_countries'].includes(key)?'':undefined):value])) as Partial<Filters>;if(changes.category!==undefined&&changes.category!==filters.category)setRealRequest(r=>({...r,query:''}));setFilters(f=>({...f,...changes}));setCountryExplanation(null);}
  function chooseCountry(code:string,name:string){setCountryName(name);const currency=data?.countries.find(c=>c.code===code)?.currency;updateFilters({country:code,listing_currency:currency});}
  useEffect(()=>{const fn=()=>setView(location.pathname.startsWith('/payment/')?'payment':(location.hash.slice(1)||'map') as View);window.addEventListener('popstate',fn);return()=>window.removeEventListener('popstate',fn);},[]);
  useEffect(()=>{let live=true;setReady(false);setLoading(true);setError('');setData(null);
   api<DemoStatus>('/demo/status').then(s=>{if(live)setStatus(s);return api('/demo/session',{persona});}).then(()=>{if(live){setReady(true);localStorage.setItem('radar-persona',persona);}}).catch(e=>{if(live){setError(e.message);setLoading(false);}});
   return()=>{live=false;};
  },[persona]);
+ useEffect(()=>{if(!ready){setInitialStrategy(null);return;}if(data)return;const controller=new AbortController();api<ShoppingStrategy>('/strategy/initial'+qs,undefined,controller.signal).then(value=>{if(!controller.signal.aborted&&value?.signature)setInitialStrategy(value);}).catch(()=>{});return()=>controller.abort();},[ready,persona,qs]);
  useEffect(()=>{if(!ready)return;const controller=new AbortController();setLoading(true);
   const timer=setTimeout(()=>{api<Discovery>('/discovery'+qs,undefined,controller.signal).then(d=>{if(controller.signal.aborted)return;setData(d);setInterestDraft(d.profile.interests.map(i=>i.category));setBudgetDraft(d.profile.budget_usd);setError('');}).catch(e=>{if(e.name!=='AbortError')setError(e.message);}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});},120);
   return()=>{clearTimeout(timer);controller.abort();};
@@ -55,7 +59,7 @@ export function useRadar(){
  async function openOffer(p:Offer|number){setError('');setExplanation(null);setCheckoutOpen(false);setQuantity(1);setFocusOffer(typeof p==='number'?p:p.id);try{setDetail(typeof p==='number'?await api<Offer>('/offers/'+p+qs):p);}catch(e){setError((e as Error).message);}}
  async function toggleSave(p:Offer){try{await api('/saved/'+p.id,{saved:!p.saved});setData(d=>d?{...d,offers:d.offers.map(o=>o.id===p.id?{...o,saved:!p.saved}:o)}:d);if(detail?.id===p.id)setDetail({...p,saved:!p.saved});if(view==='saved')setRefresh(r=>r+1);}catch(e){setError((e as Error).message);}}
  function compare(p:Offer){setSavedCompare(ids=>ids.includes(p.id)?ids:[...ids.slice(-3),p.id]);setDetail(null);navigate('compare');}
- async function ask(text=chatInput,offerId?:number){if(!text.trim()||chatBusy)return;setChatOpen(true);setChatInput('');setChatBusy(true);setError('');try{const answer=await api<Answer>('/concierge'+qs,{message:text,...(offerId?{offer_id:offerId}:{})});setMessages(m=>[...m,{question:text,answer}]);for(const action of answer.actions){if(action.type==='set_filters'){updateFilters(action.filters);if(view!=='map')navigate('map');}if(action.type==='select_country'){chooseCountry(action.country,data?.countries.find(c=>c.code===action.country)?.name||action.country);navigate('map');}if(action.type==='compare_countries'){setCountryComparison(action.countries);navigate('countries');}
+ async function ask(text=chatInput,offerId?:number,explainStrategy=false){if(!text.trim()||chatBusy)return;setChatOpen(true);setChatInput('');setChatBusy(true);setError('');try{const answer=await api<Answer>('/concierge'+qs,{message:text,...(explainStrategy?{explain_strategy:true}:{}),...(offerId?{offer_id:offerId}:{}),...(strategy?{strategy_signature:strategy.signature}:{})});setMessages(m=>[...m,{question:text,answer}]);for(const action of answer.actions){if(action.type==='set_filters'){updateFilters(action.filters);if(view!=='map')navigate('map');}if(action.type==='select_country'){chooseCountry(action.country,data?.countries.find(c=>c.code===action.country)?.name||action.country);navigate('map');}if(action.type==='compare_countries'){setCountryComparison(action.countries);navigate('countries');}
 if(action.type==='show_fx'){setFXSelection({currency:action.currency,period:action.period});navigate('fx');}
 if(action.type==='search_products'){setRealRequest(r=>({query:action.query,country:action.country||'',provider:action.provider||'auto',goal:action.goal||'best',request:r.request+1}));navigate('real');}
 if(action.type==='open_offer'){await openOffer(action.offer_id);setChatOpen(false);}}}catch(e){setError((e as Error).message);setChatInput(text);}finally{setChatBusy(false);}}
@@ -68,7 +72,7 @@ if(action.type==='open_offer'){await openOffer(action.offer_id);setChatOpen(fals
  async function refreshOrder(){if(!order)return;setBusy(true);try{setOrder(await api<Order>('/checkout/orders/'+order.id));setRefresh(r=>r+1);}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
  function reloadData(){setRefresh(r=>r+1);}
  function analysisApplied(version:number){const key=persona+':'+version;if(analysisVersion.current!==key){analysisVersion.current=key;setRefresh(r=>r+1);}}
- async function clearChat(){await api('/concierge/clear',{});setMessages([]);setFilters(defaultFilters);}
+ async function clearChat(){await api('/concierge/clear',{});setMessages([]);setFilters(defaultFilters);setRealRequest(r=>({...r,query:''}));}
  useEffect(()=>{if(!ready)return;let alive=true;const poll=async()=>{try{const d=await api<{status:string;applied_version:number}>('/analysis');if(alive&&d.status==='completed')analysisApplied(d.applied_version);}catch{/* Workspace remains usable. */}};poll();const timer=setInterval(poll,2500);return()=>{alive=false;clearInterval(timer);};},[ready,persona]);
  const visibleOffers=data?.offers.filter(p=>`${p.name} ${p.country} ${p.category}`.toLowerCase().includes(search.toLowerCase()))||[];
  const firstName=personaInfo?.name.split(' ')[0]||'Explorer';
@@ -76,7 +80,11 @@ if(action.type==='open_offer'){await openOffer(action.offer_id);setChatOpen(fals
  const currentSource=data?.fx.effective_mode==='live'?'DAILY FX · FRANKFURTER':data?.fx.effective_mode==='cached'?'CACHED FX · DAILY REFERENCE':data?.fx.effective_mode==='mixed'?'MIXED FX · CHECK EACH SOURCE':'DEMO FX · SYNTHETIC SCENARIO';
  function setProductQuery(query:string){setRealRequest(r=>({...r,query}));}
  function setProductProvider(provider:typeof realRequest.provider){setRealRequest(r=>({...r,provider}));}
- return {fxIntelligence,setFXSelection,mapLayer,setMapLayer,mapLayerTitle,automatic,showingDemo,mapCountries,setProductQuery,setProductProvider,countryComparison,fxSelection,realRequest,reloadData,analysisApplied,clearChat,persona,view,status,data,ready,loading,error,busy,filters,countryName,detail,explanation,countryExplanation,savedCompare,comparisons,
+ async function chooseShoppingPriority(priority:ShoppingPriority){if(busy)return false;setBusy(true);try{await api('/strategy/preference',{priority});setFilters(f=>({...f,shopping_priority:priority,country:'',listing_currency:priority==='domestic'?'USD':undefined}));setRealRequest(r=>({...r,query:''}));return true;}catch(e){setError((e as Error).message);return false;}finally{setBusy(false);}}
+ function exploreStrategy(){if(!strategy)return;updateFilters({category:strategy.primary_interest,listing_currency:strategy.strategy==='compare_both'?undefined:strategy.recommended_currencies[0],country:''});navigate('real');}
+ function viewStrategyFX(){const currency=strategy?.recommended_currencies.find(c=>c!=='USD')||fxIntelligence?.markets[0]?.currency||'EUR';setFXSelection({currency,period:'1Y'});navigate('fx');}
+ async function compareStrategyMarkets(){if(await chooseShoppingPriority('compare'))navigate('real');}
+ return {strategy,chooseShoppingPriority,exploreStrategy,viewStrategyFX,compareStrategyMarkets,fxIntelligence,setFXSelection,mapLayer,setMapLayer,mapLayerTitle,automatic,showingDemo,mapCountries,setProductQuery,setProductProvider,countryComparison,fxSelection,realRequest,reloadData,analysisApplied,clearChat,persona,view,status,data,ready,loading,error,busy,filters,countryName,detail,explanation,countryExplanation,savedCompare,comparisons,
   historyRows,historySource,chatOpen,chatInput,chatBusy,focusOffer,messages,checkoutOpen,checkoutMode,quantity,order,interestDraft,budgetDraft,mobileFilters,search,
   selectedCountry,profile,personaInfo,visibleOffers,firstName,cardProps,currentSource,qs,
   navigate,updateFilters,chooseCountry,changePersona,openOffer,toggleSave,compare,ask,explainOffer,explainCountry,saveProfile,resetDemo,createOrder,captureOrder,refreshOrder,

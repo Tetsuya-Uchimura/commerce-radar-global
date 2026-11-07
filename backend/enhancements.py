@@ -12,6 +12,7 @@ from .seed import seed
 class Feedback(BaseModel):
     feedback:str=Field(max_length=500)
 class ProductSearch(BaseModel):
+    shopping_priority:Literal['auto','domestic','overseas','compare']|None=None
     fx_period:Literal['30D','90D','1Y']='90D'
     opportunity_mode:Literal['live','historical']='live'
     listing_currency:Literal['EUR','GBP','JPY','AUD','CAD','CHF','SEK','SGD','USD']|None=None
@@ -29,7 +30,25 @@ class AutomaticSearch(ProductSearch):
     refresh:bool=False
     demo_only:bool=False
 
+class StrategyPreference(BaseModel):
+    priority:Literal['auto','domestic','overseas','compare']
+
+class StrategyExplanation(BaseModel):
+    signature:str=Field(min_length=24,max_length=24,pattern='^[a-f0-9]+$')
+
 def install(app,principal):
+    @app.post('/api/strategy/preference')
+    def preference(body:StrategyPreference,user=Depends(principal),db=Depends(get_db)):
+        from .shopping_strategy import set_preference
+        set_preference(db,user.id,body.priority)
+        return {'shopping_priority':body.priority}
+
+    @app.post('/api/strategy/explanation')
+    def strategy_explanation(body:StrategyExplanation,user=Depends(principal),db=Depends(get_db)):
+        from .shopping_strategy import explanation
+        value=explanation(db,user.id,body.signature)
+        if value is None:raise HTTPException(409,'Strategy evidence changed or expired; refresh the strategy.')
+        return value
     @app.get('/api/products/status')
     def provider_status(user=Depends(principal)):
         from .product_runtime import status
@@ -104,7 +123,7 @@ def install(app,principal):
 
     @app.post('/api/products/search')
     def search(body:ProductSearch,user=Depends(principal),db=Depends(get_db)):
-        return products.explore(db,user.id,body.query,body.country,body.provider,body.goal,body.budget_minor,body.excluded_countries,body.kind,False,body.fx_period,body.opportunity_mode,body.listing_currency)
+        return products.explore(db,user.id,body.query,body.country,body.provider,body.goal,body.budget_minor,body.excluded_countries,body.kind,False,body.fx_period,body.opportunity_mode,body.listing_currency,body.shopping_priority)
 
     @app.post('/api/concierge/clear')
     def clear_chat(user=Depends(principal),db=Depends(get_db)):

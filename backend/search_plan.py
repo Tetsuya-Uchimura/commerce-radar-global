@@ -16,7 +16,7 @@ TERMS = {
     'Electronics': 'electronics creative tools',
 }
 
-def build(db, uid, fx_period='90D', fx_mode='live'):
+def build(db, uid, fx_period='90D', fx_mode='live',refresh_fx=True):
     facts = analysis.features(db, uid)
     state = analysis.state(db, uid)
     current = state.status == 'completed' and state.applied_version == state.version
@@ -48,7 +48,7 @@ def build(db, uid, fx_period='90D', fx_mode='live'):
     for field in ('potential_purchase_intentions','novel_product_opportunities'):
         for hypothesis in result.get(field,[])[:3]: query(primary,primary+' '+hypothesis,field)
     from .fx_opportunities import intelligence
-    currency_context=intelligence(db,fx_period,fx_mode)
+    currency_context=intelligence(db,fx_period,fx_mode,refresh_fx)
     favorable=currency_context['favorable_currencies'][:3]
     fx_queries=[dict(q,query=(q['query']+'; listings priced in '+currency+'; confirm original listing currency')[:200],
         listing_currency_target=currency,origin=q['origin']+'+observed_fx_advantage') for q in queries[:3] for currency in favorable]

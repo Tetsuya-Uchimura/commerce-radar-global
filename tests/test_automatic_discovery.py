@@ -45,6 +45,7 @@ def test_scenario_b_edit_analysis_then_automatic_search(client,db,monkeypatch):
     photo=automatic(client)
     assert 'photography' in calls[-1].lower()
     assert photo['version']==row['version'] and photo['items'][0]['analysis_version']==row['version']
+    assert photo['strategy']['analysis_version']==row['version'] and photo['strategy']['analysis_signature']==photo['analysis_signature']
     client.post(f'/api/history/{row["id"]}/edit',json=purchase(category='Outdoor',product_name='Hiking Course'))
     output=intelligence();output.emerging_interests=['Outdoor']
     ai.responses.parse.return_value=SimpleNamespace(output_parsed=output,usage=None)
