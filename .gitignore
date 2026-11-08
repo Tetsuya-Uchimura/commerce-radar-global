@@ -33,3 +33,6 @@ htmlcov/
 
 # Local demo video assets and recordings
 demo-video/
+
+# Optional local Docker secret material (never part of image contexts).
+docker/secrets/

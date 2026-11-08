@@ -17,7 +17,7 @@ def audit(root=ROOT):
         command=['git','--git-dir',str(repo/'.git'),'--work-tree',str(root)]
         raw=subprocess.run(command+['ls-files','--others','--exclude-standard','-z'],capture_output=True,check=True).stdout
         candidates=[name.decode('utf-8') for name in raw.split(b'\0') if name]
-        examples=['.env','test/.env','frontend/node_modules/example.js','data/global_radar.db','copy.db','backend.zip','.verification/result.json','.migration-backups/source.zip','frontend/dist/index.html','backend/__pycache__/main.pyc','test/.paypal-order.json','snapshot.sqlite3-wal','.cache/result.json']
+        examples=['.env','.env.docker.local','docker/secrets/client-secret.txt','test/.env','frontend/node_modules/example.js','data/global_radar.db','copy.db','backend.zip','.verification/result.json','.migration-backups/source.zip','frontend/dist/index.html','backend/__pycache__/main.pyc','test/.paypal-order.json','snapshot.sqlite3-wal','.cache/result.json','demo-video/private-capture.png']
         checked=subprocess.run(command+['check-ignore','-z','--stdin'],input=('\0'.join(examples)+'\0').encode(),capture_output=True)
         ignored={name.decode() for name in checked.stdout.split(b'\0') if name}
     values=dotenv_values(root/'.env') if (root/'.env').exists() else {}
@@ -32,7 +32,8 @@ def audit(root=ROOT):
     for name in sorted(set(candidates+tracked)):
         p=root/name
         if not p.is_file():continue
-        if (any(part in ('node_modules','data','.venv','__pycache__','.verification','.migration-backups','.pytest_cache','.cache','dist','coverage','htmlcov') for part in Path(name).parts)
+        if (any(part in ('node_modules','data','.venv','__pycache__','.verification','.migration-backups','.pytest_cache','.cache','dist','coverage','htmlcov','demo-video','.ssh','.aws') for part in Path(name).parts)
+            or name.startswith('docker/secrets/') or p.name.startswith('.paypal-order')
             or p.name.startswith('.env') and p.name!='.env.example'
             or p.suffix in ('.db','.sqlite','.sqlite3','.zip') or any(mark in p.name for mark in ('.db-','.sqlite-','.sqlite3-'))):
             forbidden.append(name)

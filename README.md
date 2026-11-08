@@ -4,6 +4,74 @@
 
 What you love. Where your dollar goes further.
 
+## Quick Start for Hackathon Judges
+
+Install Docker Desktop with **Linux containers** on Windows/macOS, or Docker Engine
+on Linux, and **Docker Compose 2.30+**. Leave TCP port **5173** free.
+
+```bash
+git clone https://github.com/Tetsuya-Uchimura/commerce-radar-global.git
+cd commerce-radar-global
+docker compose up --build -d
+docker compose ps
+```
+
+Open **http://localhost:5173** (use `localhost`, consistently). No `.env`, API keys,
+local Python, Node.js or npm installation is needed for this Docker quick start.
+The first build downloads official base images and locked dependencies; download
+time depends on the network. Wait for both services to become healthy.
+
+Without keys, judges can select a persona, inspect synthetic history, use the map,
+deterministic strategy/statistical explanations, labelled **Demo Products**, saved
+historical FX demonstrations and **Simulation · no PayPal API** checkout. Current
+daily FX needs Frankfurter connectivity. Missing FX stays missing or explicitly
+historical; no current rate is invented. OpenAI analysis and Channel3 automatic
+real-product discovery each need their own optional server-side key. Genuine
+PayPal Sandbox checkout needs only Sandbox REST app credentials and explicit
+buyer approval; it does not require OpenAI or Channel3. **Live is unsupported.**
+
+### 5-Minute Product Walkthrough
+
+1. Open the home page and select **Coffee Enthusiast**.
+2. Read **Your AI Shopping Strategy** and its evidence/limitations.
+3. Explore **FX Advantage Map**. In the expanded currency controls, a saved
+   **Historical Demonstration Scenario** is available when current FX is missing.
+4. Change **Shopping priority** between Overseas, US First and Compare. These
+   are manual search-priority overrides, not three automatic AI conclusions.
+5. Inspect product evidence. With no Channel3 key, the automatic catalog is
+   fictional **Demo Products**; dated curated official listings can be inspected
+   separately. Origin, link access and purchase costs can remain unknown.
+6. Open **AI Concierge**. With no OpenAI key, explanations use labelled fallback
+   behavior. Do not interpret it as a fresh OpenAI analysis.
+7. Optionally open a fictional Demo Merchant product, select **Review checkout
+   conditions**, keep **Simulate · no PayPal API**, and confirm a simulated purchase.
+   External real listings use their own merchant checkout.
+
+```bash
+docker compose config --quiet
+docker compose stop
+docker compose start
+# Or remove containers/network, preserving the named SQLite volume:
+docker compose down
+docker compose up -d
+```
+
+The backend is internal; Nginx serves the production build and `/api` on the same
+origin. A separate named volume holds Docker-only data. Rebuilding or `down`
+preserves that volume. Backend restarts invalidate in-memory sessions: reload or
+reselect the persona. Never delete a volume to resolve a login issue.
+
+For optional keys, safely create **`.env.docker.local`** from `docker/env.example`;
+do not copy or overwrite the developer `.env`. Values are injected into the backend
+at runtime and never supplied to the frontend build. Key presence is not proof of
+valid authentication. See the commands and privacy notes in
+[Docker quick start and troubleshooting](docs/docker-quickstart.md) and
+[PayPal Sandbox setup](docs/paypal-sandbox-setup.md).
+
+Docker verification and limitations are recorded in
+[Docker judge verification](docs/docker-verification.md). Existing Windows local
+development commands remain below.
+
 A map-first shopping concierge for a **United States consumer**, using **USD budgets,
 USD estimated totals, and United States delivery**. It connects:
 

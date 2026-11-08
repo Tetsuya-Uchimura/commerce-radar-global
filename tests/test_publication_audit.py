@@ -1,5 +1,6 @@
 from pathlib import Path
 import subprocess
+import pytest
 from scripts.audit_publication import audit
 
 def prepare(tmp_path):
@@ -26,3 +27,12 @@ def test_ignore_does_not_hide_an_already_tracked_env_file(tmp_path):
     result=audit(root)
     assert not result['passed'] and '.env' in result['forbidden_publish_files']
     assert '.env' in result['credential_or_private_key_files']
+
+
+@pytest.mark.parametrize('name',['.env.docker.local','docker/secrets/client-secret.txt','demo-video/private-capture.png','test/.paypal-order.json'])
+def test_force_tracked_docker_secret_and_private_assets_are_forbidden(tmp_path,name):
+    root=prepare(tmp_path);path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text('private local artifact')
+    subprocess.run(['git','init','--quiet',str(root)],check=True,capture_output=True)
+    subprocess.run(['git','-C',str(root),'add','-f',name],check=True,capture_output=True)
+    result=audit(root)
+    assert not result['passed'] and name in result['forbidden_publish_files']
