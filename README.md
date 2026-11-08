@@ -80,7 +80,7 @@ USD estimated totals, and United States delivery**. It connects:
 → external store or explicitly approved Demo Merchant Sandbox checkout.**
 
 
-The Strategy Engine is integrated into `main` (`a7fb8a0`). The repository remains **Private** until the owner changes it for submission; no visibility change is part of this work. See [final submission checks](docs/final-submission-check.md) for final-polish verification, integration history and merchant approval instructions. Earlier dated verification records remain historical.
+The Strategy Engine is integrated into `main` (`a7fb8a0`). The repository is **Public** for hackathon submission. See [final submission checks](docs/final-submission-check.md) for final-polish verification, integration history and merchant approval instructions. Earlier dated verification records remain historical.
 
 ## Shopping strategy (current product concept)
 
